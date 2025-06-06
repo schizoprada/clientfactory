@@ -1,5 +1,15 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.7.4] -- *2025-06-06*
+* V3 refactor foundation complete
++ Core data models with Pydantic (RequestModel, ResponseModel, Config models)
++ Protocol definitions for dependency injection (Auth, Backend, Payload, RequestEngine, Session)
++ Base engine abstraction with RequestsEngine implementation
++ Type-safe configuration system with frozen models
++ Enhanced enum system (HTTPMethod, AuthType, BackendType, etc.)
++ Request/Response model integration with helper methods (tokwargs, FromRequests)
+
+
 ## [0.7.3] -- *2025-06-06*
 * Restarted from scratch
 + partilly set up package directory structure

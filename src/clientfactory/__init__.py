@@ -5,7 +5,7 @@ ClientFactory
 A declarative framework for building API clients with minimal boilerplate.
 """
 
-__version__ = "0.7.3"
+__version__ = "0.7.4"
 __author__ = "Joel Yisrael"
 __email__ = "schizoprada@gmail.com"
 __license__ = "MIT"
