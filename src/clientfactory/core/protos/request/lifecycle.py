@@ -20,7 +20,7 @@ class SessionProtocol(t.Protocol):
     Handles request preparation, authentication, and response processing.
     """
 
-    def send(self, request: Request) -> Response:
+    def send(self, request: RequestModel) -> ResponseModel:
         """
         Send a request and return response.
 
@@ -32,7 +32,7 @@ class SessionProtocol(t.Protocol):
         """
         ...
 
-    def preparerequest(self, request: Request) -> Request:
+    def preparerequest(self, request: RequestModel) -> RequestModel:
         """
         Prepare request for sending.
 
@@ -44,7 +44,7 @@ class SessionProtocol(t.Protocol):
         """
         ...
 
-    def processresponse(self, response: Response) -> Response:
+    def processresponse(self, response: ResponseModel) -> ResponseModel:
         """
         Process response after receiving.
 

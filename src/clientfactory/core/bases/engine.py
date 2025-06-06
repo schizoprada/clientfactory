@@ -8,7 +8,7 @@ from __future__ import annotations
 import abc, typing as t
 
 from clientfactory.core.protos import RequestEngineProtocol
-from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel
+from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel, EngineConfig
 
 
 class BaseEngine(RequestEngineProtocol, abc.ABC):
@@ -20,11 +20,13 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
     """
     def __init__(
         self,
+        config: t.Optional[EngineConfig] = None,
         **kwargs: t.Any
     ) -> None:
         """Initialize engine with configuration."""
         self._closed: bool = False
-        self._config: dict = kwargs
+        self._config: EngineConfig = (config or EngineConfig(**kwargs))
+        self._kwargs: dict = kwargs
 
     ## abstracts ##
     @abc.abstractmethod
@@ -55,6 +57,14 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
         if isinstance(method, str):
             method = HTTPMethod(method.upper())
 
+        # apply config defaults
+        #! figure out a smoother way to do this
+        if ('timeout' not in kwargs) and (self._config.timeout is not None):
+            kwargs['timeout'] = self._config.timeout
+
+        if ('verify' not in kwargs):
+            kwargs['verify'] = self._config.verify
+
         return self._makerequest(method, url, **kwargs)
 
     def send(
@@ -63,7 +73,8 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
     ) -> ResponseModel:
         """Send a prepared request object."""
         self._checknotclosed()
-        return self._makerequest(request.method, request.url, **request.tokwargs())
+        kwargs = request.tokwargs(timeout=self._config.timeout, verify=self._config.verify)
+        return self._makerequest(request.method, request.url, **kwargs)
 
     ## convenience methods ##
     def get(self, url: str, **kwargs: t.Any) -> ResponseModel:

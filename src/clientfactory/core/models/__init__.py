@@ -9,7 +9,8 @@ from .enums import (
 )
 from .config import (
     MethodConfig, ResourceConfig,
-    ClientConfig, SessionConfig
+    ClientConfig, SessionConfig,
+    EngineConfig, AuthConfig
 )
 from .request import (
     RequestModel, ResponseModel

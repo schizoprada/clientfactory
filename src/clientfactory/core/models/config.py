@@ -26,6 +26,8 @@ if t.TYPE_CHECKING:
     )
     from clientfactory.core.bases.resource import BaseResource
 
+#! TODO:
+## consolidate validators
 
 class MethodConfig(PydModel):
     """Configuration for a resource method"""
@@ -235,3 +237,45 @@ class SessionConfig(PydModel):
        if v < 0:
            raise ValueError("Max redirects cannot be negative")
        return v
+
+class EngineConfig(PydModel):
+    """Configuration for request engines."""
+    verify: bool = True
+    timeout: t.Optional[float] = None
+    # add more later
+
+    ## pydantic model config ##
+    model_config = {"frozen": True}
+
+    ## field validators ##
+    @fieldvalidator('timeout')
+    @classmethod
+    def _validatetimeout(cls, v: t.Optional[float]) -> t.Optional[float]:
+        if (v is not None) and (v <= 0):
+            raise ValueError("Timeout must be positive")
+        return v
+
+class AuthConfig(PydModel):
+    """Configuration for authentication providers."""
+    autorefresh: bool = True
+    retryattempts: int = 3
+    timeout: t.Optional[float] = None
+    ## auth specific settings that concretes can extend
+
+    ## pydantic model config ##
+    model_config = {"frozen": True}
+
+    ## field validators ##
+    @fieldvalidator('retryattempts')
+    @classmethod
+    def _validateretryattempts(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Retry attempts cannot be negative")
+        return v
+
+    @fieldvalidator('timeout')
+    @classmethod
+    def _validatetimeout(cls, v: t.Optional[float]) -> t.Optional[float]:
+        if (v is not None) and (v <= 0):
+            raise ValueError("Timeout must be positive")
+        return v

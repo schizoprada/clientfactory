@@ -1,5 +1,15 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.7.5] -- *2025-06-06*
+* Complete request pipeline implementation
++ BaseSession abstract class with request/response lifecycle
++ StandardSession concrete implementation with config-based defaults
++ BaseAuth abstract class with authentication protocol
++ EngineConfig for consistent engine configuration
++ Enhanced RequestModel with withcookies() and improved tokwargs()
++ AuthConfig for consistent authentication configuration
++ Full pipeline: Engine → Session → Auth → Request/Response flow
+
 ## [0.7.4] -- *2025-06-06*
 * V3 refactor foundation complete
 + Core data models with Pydantic (RequestModel, ResponseModel, Config models)

@@ -75,9 +75,15 @@ class RequestModel(PydModel):
         """Return new request with authentication header added."""
         return self.withheaders({header: value})
 
-    def tokwargs(self) -> t.Dict:
+    def withcookies(self, cookies: t.Dict[str, str]) -> RequestModel:
+        """Return a new request with additional cookies"""
+        new = self.cookies.copy()
+        new.update(cookies)
+        return self.model_copy(update={"cookies": new})
+
+    def tokwargs(self, **kwargs) -> t.Dict:
         """Convert to kwargs for BaseEngine"""
-        kwargs = {
+        updates = {
             'headers': self.headers,
             'params': self.params,
             'cookies': self.cookies,
@@ -85,6 +91,7 @@ class RequestModel(PydModel):
             'allow_redirects': self.allowredirects,
             'verify': self.verifyssl
         }
+        kwargs.update(updates)
         if self.json is not None:
             kwargs['json'] = self.json
         elif self.data is not None:
