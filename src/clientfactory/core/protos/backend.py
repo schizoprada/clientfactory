@@ -7,7 +7,8 @@ Protocol for response processing backends.
 from __future__ import annotations
 import typing as t
 
-from clientfactory.core.models.request import RequestModel, ResponseModel
+if t.TYPE_CHECKING:
+    from clientfactory.core.models.request import RequestModel, ResponseModel
 
 
 @t.runtime_checkable
@@ -18,7 +19,7 @@ class BackendProtocol(t.Protocol):
    Defines interface for API-specific request formatting and response processing.
    """
 
-   def formatrequest(self, request: Request, data: t.Dict[str, t.Any]) -> Request:
+   def formatrequest(self, request: 'RequestModel', data: t.Dict[str, t.Any]) -> 'RequestModel':
        """
        Format request for specific backend.
 
@@ -31,7 +32,7 @@ class BackendProtocol(t.Protocol):
        """
        ...
 
-   def processresponse(self, response: Response) -> t.Any:
+   def processresponse(self, response: 'ResponseModel') -> t.Any:
        """
        Process response from backend.
 
@@ -55,7 +56,7 @@ class BackendProtocol(t.Protocol):
        """
        ...
 
-   def handleerror(self, response: Response) -> None:
+   def handleerror(self, response: 'ResponseModel') -> None:
        """
        Handle backend-specific errors.
 

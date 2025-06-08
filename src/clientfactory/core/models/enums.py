@@ -66,6 +66,11 @@ class ToleranceType(str, enum.Enum):
     STRICT = "strict"
     #! define more as eneded
 
+class DeclarativeType(str, enum.Enum):
+    """..."""
+    COMPONENT = "component"
+
+
 ## Shorthand Aliases ##
 HTTP = HTTPMethod
 AUTH = AuthType
@@ -74,3 +79,4 @@ PAYLOAD = PayloadType
 SESSION = SessionType
 ENGINE = EngineType
 TOLERANCE = ToleranceType
+DECLARATIVE = DeclarativeType

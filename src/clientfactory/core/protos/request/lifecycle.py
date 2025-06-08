@@ -7,9 +7,11 @@ Protocol for request/response lifecycle management.
 from __future__ import annotations
 import typing as t
 
-from clientfactory.core.models.request import RequestModel, ResponseModel
 from clientfactory.core.protos.auth import AuthProtocol
 from clientfactory.core.protos.request.engine import RequestEngineProtocol
+
+if t.TYPE_CHECKING:
+    from clientfactory.core.models.request import RequestModel, ResponseModel
 
 
 @t.runtime_checkable
@@ -20,7 +22,7 @@ class SessionProtocol(t.Protocol):
     Handles request preparation, authentication, and response processing.
     """
 
-    def send(self, request: RequestModel) -> ResponseModel:
+    def send(self, request: 'RequestModel') -> 'ResponseModel':
         """
         Send a request and return response.
 
@@ -32,7 +34,7 @@ class SessionProtocol(t.Protocol):
         """
         ...
 
-    def preparerequest(self, request: RequestModel) -> RequestModel:
+    def preparerequest(self, request: 'RequestModel') -> 'RequestModel':
         """
         Prepare request for sending.
 
@@ -44,7 +46,7 @@ class SessionProtocol(t.Protocol):
         """
         ...
 
-    def processresponse(self, response: ResponseModel) -> ResponseModel:
+    def processresponse(self, response: 'ResponseModel') -> 'ResponseModel':
         """
         Process response after receiving.
 

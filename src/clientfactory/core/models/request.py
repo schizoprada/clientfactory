@@ -15,9 +15,11 @@ from pydantic import (
     computed_field as computedfield
 )
 
-from schematix.core.bases.field import BaseField
+import schematix as sex
 
+from clientfactory.core.protos import PayloadProtocol
 from clientfactory.core.models.enums import HTTPMethod
+from clientfactory.core.models.config import PayloadConfig
 
 if t.TYPE_CHECKING:
     import requests as rq
@@ -133,6 +135,15 @@ class RequestModel(PydModel):
             raise ValueError("Timeout must be positive")
         return v
 
+    @fieldvalidator('method', mode='before')
+    @classmethod
+    def _validatemethod(cls, v: t.Union[str, HTTPMethod]) -> HTTPMethod:
+        if isinstance(v, HTTPMethod):
+            return v
+        try:
+            return HTTPMethod(v.upper())
+        except Exception as e:
+            raise ValueError(f"Invalid HTTP Method '{v}'")
 
 class ResponseModel(PydModel):
     """
@@ -239,9 +250,9 @@ class ResponseModel(PydModel):
             elapsedtime=response.elapsed.total_seconds()
         )
 
-class Param(BaseField):
+class Param(sex.Field):
     """
-    ClientFactory parameter built on schematix BaseField.
+    ClientFactory parameter built on schematix Field.
 
     Extends schematix field capabilities with clientfactory-specific
     functionality for API parameter handling.
@@ -267,22 +278,137 @@ class Param(BaseField):
             transform=transform,
             **kwargs
         )
-        # no need to store kwargs, BaseField already handles it
 
-    # Inherit all schematix functionality (extract, validate, operators, etc.)
-    # Add clientfactory-specific methods as needed
-    #! need to determine how necessary these are, lets just keep them here for now
-    def formethod(self, method: HTTPMethod) -> 'Param':
-        """Configure parameter for specific HTTP method."""
-        # Could add method-specific validation/behavior
-        return self
+    def __set_name__(self, owner, name):
+        """Called when Param is assigned to a class attribute."""
+        print(f"DEBUG: __set_name__ called with owner={owner}, name={name}")
+        print(f"DEBUG: Before - self.name={self.name}, self.target={self.target}")
+        # This is called by the metaclass with the actual attribute name
+        if self.name is None:
+            self.name = name
 
-    def asquery(self) -> 'Param':
-        """Configure parameter for query string usage."""
-        # Could set specific source/target for query params
-        return self
+        # Now set target default if not specified
+        if self.target is None:
+            self.target = self.name
 
-    def asjson(self) -> 'Param':
-        """Configure parameter for JSON body usage."""
-        # Could set specific source/target for JSON payload
-        return self
+        print(f"DEBUG: After - self.name={self.name}, self.target={self.target}")
+
+        # Call parent if it exists
+        if hasattr(super(), '__set_name__'):
+            super().__set_name__(owner, name) # type: ignore
+
+class BoundPayload:
+    """Payload bound to specific source mappings."""
+    def __init__(
+        self,
+        boundto: sex.core.schema.BoundSchema,
+        config: PayloadConfig
+    ) -> None:
+        self.boundto = boundto
+        self._config = config
+
+    def serialize(self, data: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+        """Serialize using bound schema with ClientFactory target-key behavior."""
+        result = {}
+
+        print(f"DEBUG BoundPayload: data = {data}")
+        print(f"DEBUG BoundPayload: _boundfields = {getattr(self.boundto, '_boundfields', 'NOT_FOUND')}")
+
+        # Use the bound fields, but apply ClientFactory target-key logic
+        for fieldname, boundfield in self.boundto._boundfields.items():
+            print(f"DEBUG BoundPayload: Processing field '{fieldname}'")
+            print(f"DEBUG BoundPayload: boundfield = {boundfield}")
+            print(f"DEBUG BoundPayload: boundfield.target = {getattr(boundfield, 'target', 'NO_TARGET')}")
+
+            try:
+                value = boundfield.extract(data)
+                print(f"DEBUG BoundPayload: extracted value = {value}")
+
+                # Use target as key, just like Payload.transform()
+                key = getattr(boundfield, 'target', None) or fieldname
+                print(f"DEBUG BoundPayload: using key = {key}")
+
+                result[key] = value
+            except Exception as e:
+                print(f"DEBUG BoundPayload: Exception on field '{fieldname}': {e}")
+                raise ValueError(f"Bound transform failed on field '{fieldname}': {e}")
+
+        print(f"DEBUG BoundPayload: final result = {result}")
+        return result
+
+class Payload(sex.Schema): #! PayloadProtocol removed
+    """
+    Abstract base class for request payload handling.
+
+    Extends schematix Schema with ClientFactory-specific functionality.
+    Gets automatic field discovery via SchemaMeta metaclass.
+    """
+
+    def __init__(
+        self,
+        config: t.Optional[PayloadConfig] = None,
+        **kwargs: t.Any
+    ) -> None:
+        """Initialize payload with configuration."""
+        super().__init__(**kwargs)
+        self._config: PayloadConfig = (config or PayloadConfig(**kwargs))
+        self._assigntargets()
+
+    def _assigntargets(self) -> None:
+        """Fix field targets after SchemaMeta has set names but before target defaulting"""
+        for fieldname, field in self._fields.items():
+            if hasattr(field, 'target') and field.target is None:
+                field.target = field.name
+
+    ## inheritance overrides ##
+    def transform(self, data: t.Any, typetarget: t.Optional[t.Type] = None) -> t.Any:
+        """Transform data using schematix with PayloadProtocol compatibility."""
+        result = {}
+        # not calling super in order to use target key instead
+        for fieldname, field in self._fields.items():
+            try:
+                value = field.extract(data)
+                key = (field.target or fieldname)
+                result[key] = value
+            except Exception as e:
+                raise ValueError(f"Transform failed on field '{fieldname}': {e}")
+
+        if typetarget is not None:
+            return self._typeconvert(result, typetarget)
+        return result
+
+    def bind(self, mapping: t.Dict[str, t.Any]) -> BoundPayload: # type: ignore
+        boundschema = super().bind(mapping)
+
+        # perserve original targets in bound fields
+        for fieldname, boundfield in boundschema._boundfields.items():
+            if fieldname in self._fields:
+                original = self._fields[fieldname]
+                if hasattr(original, 'target') and original.target:
+                    boundfield.target = original.target
+
+        return BoundPayload(boundto=boundschema, config=self._config)
+
+    def validate(self, data: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
+        return self.transform(data)
+
+    def serialize(self, data: t.Dict[str, t.Any]) -> t.Union[str, bytes, t.Dict[str, t.Any]]:
+        """Serialize validated data using schematix transform."""
+        return self.transform(data)
+
+    def getschema(self) -> t.Dict[str, t.Any]:
+        """Get payload schema definition."""
+        schema = {}
+        for name, field in self._fields.items():
+            schema[name] = {
+                'name': field.name,
+                'required': field.required,
+                'default': field.default,
+                'source': field.source,
+                'target': field.target
+            }
+        return schema
+
+    def getconfig(self) -> PayloadConfig:
+        """Get payload configuration."""
+        return self._config

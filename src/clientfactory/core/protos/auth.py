@@ -7,7 +7,8 @@ Protocol for authentication strategies.
 from __future__ import annotations
 import typing as t
 
-from clientfactory.core.models.request import RequestModel
+if t.TYPE_CHECKING:
+    from clientfactory.core.models.request import RequestModel
 
 @t.runtime_checkable
 class AuthProtocol(t.Protocol):
@@ -17,7 +18,7 @@ class AuthProtocol(t.Protocol):
     Defines interface for credential management and request authentication.
     """
 
-    def applyauth(self, request: Request) -> Request:
+    def applyauth(self, request: 'RequestModel') -> 'RequestModel':
         """
         Apply authentication to a request.
 

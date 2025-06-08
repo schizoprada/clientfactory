@@ -7,8 +7,10 @@ Protocol for HTTP transport engines.
 from __future__ import annotations
 import typing as t
 
-from clientfactory.core.models.request import RequestModel, ResponseModel
 from clientfactory.core.models.enums import HTTPMethod
+
+if t.TYPE_CHECKING:
+    from clientfactory.core.models.request import RequestModel, ResponseModel
 
 
 @t.runtime_checkable
@@ -25,7 +27,7 @@ class RequestEngineProtocol(t.Protocol):
        method: HTTPMethod | str,
        url: str,
        **kwargs: t.Any
-   ) -> Response:
+   ) -> 'ResponseModel':
        """
        Make an HTTP request.
 
@@ -39,7 +41,7 @@ class RequestEngineProtocol(t.Protocol):
        """
        ...
 
-   def send(self, request: Request) -> Response:
+   def send(self, request: 'RequestModel') -> 'ResponseModel':
        """
        Send a prepared request object.
 
@@ -51,31 +53,31 @@ class RequestEngineProtocol(t.Protocol):
        """
        ...
 
-   def get(self, url: str, **kwargs: t.Any) -> Response:
+   def get(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make a GET request."""
        ...
 
-   def post(self, url: str, **kwargs: t.Any) -> Response:
+   def post(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make a POST request."""
        ...
 
-   def put(self, url: str, **kwargs: t.Any) -> Response:
+   def put(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make a PUT request."""
        ...
 
-   def patch(self, url: str, **kwargs: t.Any) -> Response:
+   def patch(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make a PATCH request."""
        ...
 
-   def delete(self, url: str, **kwargs: t.Any) -> Response:
+   def delete(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make a DELETE request."""
        ...
 
-   def head(self, url: str, **kwargs: t.Any) -> Response:
+   def head(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make a HEAD request."""
        ...
 
-   def options(self, url: str, **kwargs: t.Any) -> Response:
+   def options(self, url: str, **kwargs: t.Any) -> 'ResponseModel':
        """Make an OPTIONS request."""
        ...
 
