@@ -16,7 +16,8 @@ from pydantic import (
 
 from clientfactory.core.models.enums import (
     HTTPMethod, AuthType, BackendType,
-    PayloadType, SessionType, EngineType
+    PayloadType, SessionType, EngineType,
+    ToleranceType
 )
 
 if t.TYPE_CHECKING:
@@ -279,3 +280,32 @@ class AuthConfig(PydModel):
         if (v is not None) and (v <= 0):
             raise ValueError("Timeout must be positive")
         return v
+
+class BackendConfig(PydModel):
+    """Configuration for response processing backends."""
+    ## exception handling ##
+    raiseonerror: bool = True
+    errortolerance: ToleranceType = ToleranceType.STRICT
+
+    ## response processing ##
+    autoparse: bool = True
+    timeout: t.Optional[float] = None
+
+    ## retry settings ##
+    retryattempts: int = 0
+    retrybackoff: float = 1.0
+
+    ## pydantic configs ##
+    model_config = {"frozen": True}
+
+    ## field validators ##
+    @fieldvalidator('retryattempts')
+    @classmethod
+    def _validateretryattempts(cls, v: int) -> int:
+        if (v < 0): #! shouldnt we just be using the pydantic Field.ge?
+            raise ValueError("Retry attempts cannot be negative")
+        return v
+
+class PayloadConfig(PydModel):
+    """..."""
+    ...

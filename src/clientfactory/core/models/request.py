@@ -15,6 +15,8 @@ from pydantic import (
     computed_field as computedfield
 )
 
+from schematix.core.bases.field import BaseField
+
 from clientfactory.core.models.enums import HTTPMethod
 
 if t.TYPE_CHECKING:
@@ -236,3 +238,51 @@ class ResponseModel(PydModel):
             cookies=dict(response.cookies),
             elapsedtime=response.elapsed.total_seconds()
         )
+
+class Param(BaseField):
+    """
+    ClientFactory parameter built on schematix BaseField.
+
+    Extends schematix field capabilities with clientfactory-specific
+    functionality for API parameter handling.
+    """
+
+    def __init__(
+        self,
+        name: t.Optional[str] = None,
+        source: t.Optional[str] = None,
+        target: t.Optional[str] = None,
+        required: bool = False,
+        default: t.Any = None,
+        transform: t.Optional[t.Callable] = None,
+        **kwargs: t.Any
+    ) -> None:
+        """Initialize parameter with clientfactory extensions."""
+        super().__init__(
+            name=name,
+            source=source,
+            target=target,
+            required=required,
+            default=default,
+            transform=transform,
+            **kwargs
+        )
+        # no need to store kwargs, BaseField already handles it
+
+    # Inherit all schematix functionality (extract, validate, operators, etc.)
+    # Add clientfactory-specific methods as needed
+    #! need to determine how necessary these are, lets just keep them here for now
+    def formethod(self, method: HTTPMethod) -> 'Param':
+        """Configure parameter for specific HTTP method."""
+        # Could add method-specific validation/behavior
+        return self
+
+    def asquery(self) -> 'Param':
+        """Configure parameter for query string usage."""
+        # Could set specific source/target for query params
+        return self
+
+    def asjson(self) -> 'Param':
+        """Configure parameter for JSON body usage."""
+        # Could set specific source/target for JSON payload
+        return self

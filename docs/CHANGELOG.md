@@ -1,5 +1,16 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.7.6] -- *2025-06-08*
+* Core abstractions and framework foundation complete
++ BaseClient abstract class with component management and resource discovery
++ BaseResource abstract class with method/child registration and URL building
++ BaseBackend abstract class with request formatting and response processing
++ BasePayload abstract class integrating with schematix for parameter handling
++ Param class extending schematix Field for clientfactory-specific parameter logic
++ Complete config system: EngineConfig, AuthConfig, BackendConfig, ToleranceType enum
++ All base abstractions ready for concrete implementations and declarative framework
+
+
 ## [0.7.5] -- *2025-06-06*
 * Complete request pipeline implementation
 + BaseSession abstract class with request/response lifecycle

@@ -59,6 +59,13 @@ class EngineType(str, enum.Enum):
     AIOHTTP = "aiohttp"
     CUSTOM = "custom"
 
+class ToleranceType(str, enum.Enum):
+    """Handling strictness level types"""
+    IGNORE = "ignore"
+    LAX = "lax"
+    STRICT = "strict"
+    #! define more as eneded
+
 ## Shorthand Aliases ##
 HTTP = HTTPMethod
 AUTH = AuthType
@@ -66,3 +73,4 @@ BACKEND = BackendType
 PAYLOAD = PayloadType
 SESSION = SessionType
 ENGINE = EngineType
+TOLERANCE = ToleranceType
