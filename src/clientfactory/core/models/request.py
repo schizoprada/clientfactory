@@ -85,9 +85,9 @@ class RequestModel(PydModel):
         new.update(cookies)
         return self.model_copy(update={"cookies": new})
 
-    def tokwargs(self, **kwargs) -> t.Dict:
+    def tokwargs(self, **updates) -> t.Dict:
         """Convert to kwargs for BaseEngine"""
-        updates = {
+        kwargs = {
             'headers': self.headers,
             'params': self.params,
             'cookies': self.cookies,
@@ -95,7 +95,8 @@ class RequestModel(PydModel):
             'allow_redirects': self.allowredirects,
             'verify': self.verifyssl
         }
-        kwargs.update(updates)
+        print(f"DEBUG | initial kwargs: {kwargs}")
+        print(f"DEBUG | received updates: {updates}")
         if self.json is not None:
             kwargs['json'] = self.json
         elif self.data is not None:
@@ -104,6 +105,8 @@ class RequestModel(PydModel):
         if self.files is not None:
             kwargs['files'] = self.files
 
+        kwargs.update(updates)
+        print(f"DEBUG | final kwargs: {kwargs}")
         return kwargs
 
     ## computed fields ##

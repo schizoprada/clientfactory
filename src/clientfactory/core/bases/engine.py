@@ -7,9 +7,9 @@ Abstract base class for HTTP request engines.
 from __future__ import annotations
 import abc, typing as t
 
-from clientfactory.core.protos import RequestEngineProtocol
+from clientfactory.core.protos import RequestEngineProtocol, SessionProtocol
 from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel, EngineConfig
-
+from clientfactory.core.bases.session import BaseSession
 
 class BaseEngine(RequestEngineProtocol, abc.ABC):
     """
@@ -21,19 +21,29 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
     def __init__(
         self,
         config: t.Optional[EngineConfig] = None,
+        cascadeconfig: bool = True,
         **kwargs: t.Any
     ) -> None:
         """Initialize engine with configuration."""
         self._closed: bool = False
         self._config: EngineConfig = (config or EngineConfig(**kwargs))
+        self._cascadeconfig: bool = cascadeconfig
+        self._session: BaseSession = self._setupsession()
         self._kwargs: dict = kwargs
 
-    ## abstracts ##
+    @abc.abstractmethod
+    def _setupsession(self) -> BaseSession:
+        """
+        Create engine-specific session.
+        """
+        ...
+
     @abc.abstractmethod
     def _makerequest(
         self,
         method: HTTPMethod,
         url: str,
+        usesession: bool,
         **kwargs: t.Any
     ) -> ResponseModel:
         """
@@ -48,6 +58,7 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
         self,
         method: t.Union[HTTPMethod, str],
         url: str,
+        usesession: bool = False, # default do not use session here
         **kwargs: t.Any
     ) -> ResponseModel:
         """Make an HTTP request"""
@@ -67,14 +78,45 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
 
         return self._makerequest(method, url, **kwargs)
 
+    def _applyconfigfallbacks(self, requestkwargs: dict, noapply: t.Optional[t.List[str]] = None) -> dict:
+        """
+        Apply config values as fallbacks for None request values.
+
+        Args:
+            requestkwargs: Request kwargs from tokwargs()
+            noapply: List of keys to exclude from config fallback application
+
+        Returns:
+            Updated kwargs with config fallbacks applied
+        """
+        kwargs = requestkwargs.copy()
+        skip = set(noapply or [])
+
+        for k,v in kwargs.items():
+            if (
+                v is None and # request value is None
+                hasattr(self._config, k) and # config has this attribute
+                k not in skip # key is not excluded
+            ):
+                fallback = getattr(self._config, k)
+                if fallback is not None:
+                    kwargs[k] = fallback
+
+        return kwargs
+
     def send(
         self,
-        request: RequestModel
+        request: RequestModel,
+        configoverride: bool = False,
+        usesession: bool = True, # should execute request with session
     ) -> ResponseModel:
         """Send a prepared request object."""
         self._checknotclosed()
-        kwargs = request.tokwargs(timeout=self._config.timeout, verify=self._config.verify)
-        return self._makerequest(request.method, request.url, **kwargs)
+        kwargs = request.tokwargs()
+        kwargs = self._applyconfigfallbacks(kwargs) # apply fallbacks from config
+        if configoverride:
+            kwargs.update(self._config.requestoverrides())
+        return self._makerequest(request.method, request.url, usesession, **kwargs)
 
     ## convenience methods ##
     def get(self, url: str, **kwargs: t.Any) -> ResponseModel:

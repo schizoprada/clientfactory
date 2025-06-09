@@ -153,6 +153,9 @@ class ClientConfig(PydModel):
     version: str = "1.0.0" #! implement semver string type for later
     description: str = ""
 
+    ## configuration inheritance behavior ##
+    cascade: bool = True
+
     ## pydantic configs ##
     model_config = {"frozen": True}
 
@@ -255,6 +258,35 @@ class EngineConfig(PydModel):
         if (v is not None) and (v <= 0):
             raise ValueError("Timeout must be positive")
         return v
+
+    ## convenience methods ##
+    def requestoverrides(self, nonulls: bool = True, **updates) -> dict:
+        """
+        Return configuration values that can override a RequestModels settings.
+        Toggle `nonulls` flag to `False` to include `None` values
+        """
+        overrides = {
+            'verify': self.verify,
+            'timeout': self.timeout
+        }
+        overrides.update(updates)
+        if nonulls:
+            return {k:v for k,v in overrides.items() if v is not None}
+        return overrides
+
+    def sessionoverrides(self, nonulls: bool = True, **updates) -> dict:
+        """
+        Return configuration values that can override a BaseSession settings.
+        Toggle `nonulls` flag to `False` to include `None` values
+        """
+        overrides = {
+            'verify': self.verify,
+            'timeout': self.timeout
+        }
+        overrides.update(updates)
+        if nonulls:
+            return {k:v for k,v in overrides.items() if v is not None}
+        return overrides
 
 class AuthConfig(PydModel):
     """Configuration for authentication providers."""

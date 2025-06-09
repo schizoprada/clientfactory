@@ -17,7 +17,7 @@ class DeclarativeMeta(type):
 
     def __new__(mcs, name: str, bases: tuple, namespace: dict, **kwargs):
         # create class
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        cls = super().__new__(mcs, name, bases, namespace) # remoed kwargs [type]super() doesnt accept
 
         # initialize metadata storage
         setattr(cls, '_declmetadata', {})
@@ -52,9 +52,28 @@ class DeclarativeMeta(type):
 
     @classmethod
     def _inherit(mcs, cls: type, bases: tuple) -> None:
-        """Process metadata inheritance from parent classes."""
-        for base in bases:
+        """Process attribute inheritance from parent classes."""
+        def _metadata(base: t.Any) -> None:
+            """Inherit metadata from parent classes."""
             if hasattr(base, '_declmetadata'):
                 for k,v in base._declmetadata.items():
                     if k not in cls._declmetadata:
                         cls._declmetadata[k] = v
+        def _components(base: t.Any) -> None:
+            """Inherit components from parent classes."""
+            if hasattr(base, '_declcomponents'):
+                for k,v in base._declcomponents.items():
+                    if k not in cls._declcomponents:
+                        cls._declcomponents[k] = v
+
+        def _methods(base: t.Any) -> None:
+            """Inherit methods from parent classes."""
+            if hasattr(base, '_declmethods'):
+                for k,v in base._declmethods.items():
+                    if k not in cls._declmethods:
+                        cls._declmethods[k] = v
+
+        for base in bases:
+            _metadata(base) # inherit metadata
+            _components(base) # inherit components
+            _methods(base) # inherit methods

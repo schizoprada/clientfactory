@@ -74,10 +74,10 @@ class BaseAuth(AuthProtocol, abc.ABC):
 
         return self._applyauth(request)
 
-    def refresh(self) -> None:
+    def refresh(self) -> bool:
         """Refresh authentication."""
         # base implementation - re-authenticate
-        self.authenticate()
+        return self.authenticate()
 
     def refreshifneeded(self) -> None:
         """Refresh authentication if needed."""

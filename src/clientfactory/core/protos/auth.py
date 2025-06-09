@@ -43,7 +43,7 @@ class AuthProtocol(t.Protocol):
         """"""
         ...
 
-    def refresh(self) -> None:
+    def refresh(self) -> bool:
         """"""
         ...
 

@@ -41,7 +41,7 @@ class RequestEngineProtocol(t.Protocol):
        """
        ...
 
-   def send(self, request: 'RequestModel') -> 'ResponseModel':
+   def send(self, request: 'RequestModel', *args, **kwargs) -> 'ResponseModel':
        """
        Send a prepared request object.
 

@@ -13,7 +13,7 @@ from clientfactory.core.models import (
 from clientfactory.core.protos import (
     RequestEngineProtocol, AuthProtocol, SessionProtocol
 )
-from clientfactory.engines.requests import RequestsEngine
+from clientfactory.engines.requestslib import RequestsEngine
 from clientfactory.sessions.standard import StandardSession
 
 if t.TYPE_CHECKING:

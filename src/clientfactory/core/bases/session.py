@@ -21,18 +21,25 @@ class BaseSession(SessionProtocol, abc.ABC):
     """
     def __init__(
         self,
-        engine: t.Optional[RequestEngineProtocol] = None,
         auth: t.Optional[AuthProtocol] = None,
         config: t.Optional[SessionConfig] = None,
         **kwargs: t.Any
     ) -> None:
         """Initialize session with engine and auth."""
-        self._engine: t.Optional[RequestEngineProtocol] = engine
         self._auth: t.Optional[AuthProtocol] = auth
         self._config: SessionConfig = (config or SessionConfig(**kwargs))
         self._closed: bool = False
+        self._obj: t.Any = self._setup()
 
     ## abstracts ##
+    @abc.abstractmethod
+    def _setup(self) -> t.Any:
+        """
+        Create the underlying library-specific session object,
+        and apply any configurations.
+        """
+        ...
+
     @abc.abstractmethod
     def _preparerequest(self, request: RequestModel) -> RequestModel:
         """
@@ -40,6 +47,11 @@ class BaseSession(SessionProtocol, abc.ABC):
 
         Concrete sessions implement custom preparation logic.
         """
+        ...
+
+    @abc.abstractmethod
+    def _makerequest(self, request: RequestModel) -> ResponseModel:
+        """Session-specific request execution"""
         ...
 
     @abc.abstractmethod
@@ -51,17 +63,11 @@ class BaseSession(SessionProtocol, abc.ABC):
         """
         ...
 
-
     ## helper methods ##
     def _checknotclosed(self) -> None:
         """Check if session is still open"""
         if self._closed:
             raise RuntimeError("Session is closed")
-
-    def _checkengineavailable(self) -> None:
-        """Check if a request engine has been configured"""
-        if (not self._engine) or (self._engine is None):
-            raise RuntimeError(f"No engine configured")
 
     ## core methods ##
     def preparerequest(self, request: RequestModel) -> RequestModel:
@@ -107,13 +113,11 @@ class BaseSession(SessionProtocol, abc.ABC):
         Main request lifecycle orchestration.
         """
         self._checknotclosed()
-        self._checkengineavailable()
 
         # prepare the request
         prepared = self.preparerequest(request)
 
-        # send via engine
-        response = self._engine.send(prepared) # type: ignore // we already checked
+        response = self._makerequest(prepared) # session literal handles
 
         # process response
         return self.processresponse(response)
@@ -122,18 +126,12 @@ class BaseSession(SessionProtocol, abc.ABC):
     ## lifecycle management ##
     def close(self) -> None:
         """Close session and cleanup resources"""
-        if self._engine:
-            self._engine.close()
         self._closed = True
 
     ## component management ##
     def setauth(self, auth: AuthProtocol) -> None:
         """Set authentication for session"""
         self._auth = auth
-
-    def setengine(self, engine: RequestEngineProtocol) -> None:
-        """Set HTTP Engine for session"""
-        self._engine = engine
 
     ## context management ##
     def __enter__(self) -> SessionProtocol:
