@@ -4,6 +4,7 @@
 from .auth import AuthProtocol
 from .backend import BackendProtocol
 from .payload import PayloadProtocol
+from .persistence import PersistenceProtocol
 from .request import (
     RequestEngineProtocol, SessionProtocol
 )
@@ -13,5 +14,6 @@ __all__ = [
     'BackendProtocol',
     'PayloadProtocol',
     'RequestEngineProtocol',
-    'SessionProtocol'
+    'SessionProtocol',
+    'PersistenceProtocol'
 ]

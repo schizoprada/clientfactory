@@ -14,6 +14,7 @@ from clientfactory.core.models import (
 from clientfactory.core.protos import (
     SessionProtocol, BackendProtocol, PayloadProtocol
 )
+from clientfactory.core.bases.session import BaseSession
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
@@ -30,13 +31,15 @@ class BaseResource(abc.ABC):
         self,
         client: 'BaseClient',
         config: t.Optional[ResourceConfig] = None,
-        session: t.Optional[SessionProtocol] = None,
+        session: t.Optional[BaseSession] = None,
+        backend: t.Optional[BackendProtocol] = None,
         **kwargs: t.Any,
     ) -> None:
         """Initialize resource with client and configuration."""
         self._client: 'BaseClient' = client
         self._config: ResourceConfig = (config or ResourceConfig(**kwargs)) #! lets implement a helper method at somepoint to filter kwargs based on class trying to be instantiated
-        self._session: SessionProtocol = (session or client.getsession())
+        self._session: BaseSession = (session or client._engine._session)
+        self._backend: t.Optional[BackendProtocol] = (backend or client._backend)
         self._methods: t.Dict[str, t.Callable] = {}
         self._children: t.Dict[str, 'BaseResource'] = {}
 

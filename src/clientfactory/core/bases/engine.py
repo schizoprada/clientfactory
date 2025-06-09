@@ -8,7 +8,7 @@ from __future__ import annotations
 import abc, typing as t
 
 from clientfactory.core.protos import RequestEngineProtocol, SessionProtocol
-from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel, EngineConfig
+from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel, EngineConfig, SessionConfig
 from clientfactory.core.bases.session import BaseSession
 
 class BaseEngine(RequestEngineProtocol, abc.ABC):
@@ -21,18 +21,17 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
     def __init__(
         self,
         config: t.Optional[EngineConfig] = None,
-        cascadeconfig: bool = True,
+        session: t.Optional[BaseSession] = None,
         **kwargs: t.Any
     ) -> None:
-        """Initialize engine with configuration."""
+        """Initialize engine with configuration.""" #! update to reflect new signature
         self._closed: bool = False
         self._config: EngineConfig = (config or EngineConfig(**kwargs))
-        self._cascadeconfig: bool = cascadeconfig
-        self._session: BaseSession = self._setupsession()
+        self._session: BaseSession = (session or self._setupsession(kwargs.get('sessionconfig')))
         self._kwargs: dict = kwargs
 
     @abc.abstractmethod
-    def _setupsession(self) -> BaseSession:
+    def _setupsession(self, config: t.Optional[SessionConfig] = None) -> BaseSession:
         """
         Create engine-specific session.
         """
@@ -58,7 +57,8 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
         self,
         method: t.Union[HTTPMethod, str],
         url: str,
-        usesession: bool = False, # default do not use session here
+        configoverride: bool = False,
+        usesession: bool = True,
         **kwargs: t.Any
     ) -> ResponseModel:
         """Make an HTTP request"""
@@ -68,15 +68,14 @@ class BaseEngine(RequestEngineProtocol, abc.ABC):
         if isinstance(method, str):
             method = HTTPMethod(method.upper())
 
-        # apply config defaults
-        #! figure out a smoother way to do this
-        if ('timeout' not in kwargs) and (self._config.timeout is not None):
-            kwargs['timeout'] = self._config.timeout
+        # apply config defaults as fallbacks
+        kwargs = self._applyconfigfallbacks(kwargs)
 
-        if ('verify' not in kwargs):
-            kwargs['verify'] = self._config.verify
+        # override with config defaults if flagged
+        if configoverride:
+            kwargs.update(self._config.requestoverrides())
 
-        return self._makerequest(method, url, **kwargs)
+        return self._makerequest(method, url, usesession, **kwargs)
 
     def _applyconfigfallbacks(self, requestkwargs: dict, noapply: t.Optional[t.List[str]] = None) -> dict:
         """

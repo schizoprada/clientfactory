@@ -1,5 +1,23 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.7.7] -- *2025-06-09*
+* Complete V3 architecture foundation established
++ BaseClient abstract class with resource discovery and component management
++ BaseResource abstract class with method/child registration and URL building
++ BaseEngine abstract class with session management and request lifecycle
++ BaseSession abstract class with auth/persistence integration and request preparation
++ BaseAuth abstract class with pluggable authentication strategies
++ BaseBackend abstract class with API-specific request formatting and response processing
++ BasePersistence abstract class with configurable state management
++ Complete protocol system for dependency injection (Auth, Backend, Persistence, RequestEngine, Session)
++ Enhanced config system with cascading: EngineConfig, SessionConfig, AuthConfig, BackendConfig, PersistenceConfig
++ RequestsEngine concrete implementation with requests.Session integration
++ RequestModel/ResponseModel with Pydantic validation and helper methods
++ Comprehensive unit test coverage for all base abstractions
++ Clean separation of concerns: Client → Engine → Session → [Auth, Persistence]
++ Backend architecture: Resource-level API formatting with client-level defaults
++ Session persistence with configurable filtering (cookies, headers, tokens)
+
 ## [0.7.6] -- *2025-06-08*
 * Core abstractions and framework foundation complete
 + BaseClient abstract class with component management and resource discovery

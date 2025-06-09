@@ -16,9 +16,30 @@ class TestEngineBasics:
 
     def test_initialization_with_defaults(self):
         """Test engine initialization with default config."""
+        # Update the TestEngine classes in test_engine.py
+
         class TestEngine(BaseEngine):
-            def _makerequest(self, method, url, **kwargs):
-                return ResponseModel(statuscode=200, headers={}, content=b"", url=url)
+            def _setupsession(self, config=None):
+                # Return a mock session for testing
+                mock_session = Mock()
+                mock_session.send = Mock(return_value=ResponseModel(
+                    statuscode=200, headers={}, content=b"", url="test"
+                ))
+                return mock_session
+
+            def _makerequest(self, method, url, usesession=True, **kwargs):
+                if usesession:
+                    # Use the session
+                    request = RequestModel(method=method, url=url, **kwargs)
+                    return self._session.send(request)
+                else:
+                    # Direct request without session
+                    return ResponseModel(
+                        statuscode=200,
+                        headers={'Content-Type': 'application/json'},
+                        content=b'{"test": "data"}',
+                        url=url
+                    )
 
         engine = TestEngine()
         assert isinstance(engine._config, EngineConfig)

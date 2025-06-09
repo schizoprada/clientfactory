@@ -6,6 +6,8 @@ Immutable configuration objects for clients, resources, and methods.
 """
 from __future__ import annotations
 import typing as t
+from pathlib import Path
+
 
 from pydantic import (
    BaseModel as PydModel,
@@ -194,59 +196,84 @@ class ClientConfig(PydModel):
         return v
 
 class SessionConfig(PydModel):
-   """Configuration for session behavior."""
-   ## connection settings ##
-   timeout: float = 30.0
-   verifyssl: bool = True
-   allowredirects: bool = True
-   maxredirects: int = 10
+    """Configuration for session behavior."""
+    ## connection settings ##
+    timeout: float = 30.0
+    verifyssl: bool = True
+    allowredirects: bool = True
+    maxredirects: int = 10
 
-   ## retry settings ##
-   maxretries: int = 3
-   retrybackoff: float = 1.0
+    ## retry settings ##
+    maxretries: int = 3
+    retrybackoff: float = 1.0
 
-   ## connection pooling ##
-   poolconnections: int = 10
-   poolmaxsize: int = 10
+    ## connection pooling ##
+    poolconnections: int = 10
+    poolmaxsize: int = 10
 
-   ## state management ##
-   persistcookies: bool = False
-   cookiefile: t.Optional[str] = None
+    ## state management ##
+    persistcookies: bool = False
+    cookiefile: t.Optional[str] = None
 
-   ## headers and cookies ##
-   defaultheaders: t.Dict[str, str] = Field(default_factory=dict)
-   defaultcookies: t.Dict[str, str] = Field(default_factory=dict)
+    ## headers and cookies ##
+    defaultheaders: t.Dict[str, str] = Field(default_factory=dict)
+    defaultcookies: t.Dict[str, str] = Field(default_factory=dict)
 
-   ## pydantic model config ##
-   model_config = {"frozen": True}
+    ## pydantic model config ##
+    model_config = {"frozen": True}
 
-   ## field validators ##
-   @fieldvalidator('timeout')
-   @classmethod
-   def _validatetimeout(cls, v: float) -> float:
-       if v <= 0:
-           raise ValueError("Timeout must be positive")
-       return v
+    ## field validators ##
+    @fieldvalidator('timeout')
+    @classmethod
+    def _validatetimeout(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("Timeout must be positive")
+        return v
 
-   @fieldvalidator('maxretries')
-   @classmethod
-   def _validatemaxretries(cls, v: int) -> int:
-       if v < 0:
-           raise ValueError("Max retries cannot be negative")
-       return v
+    @fieldvalidator('maxretries')
+    @classmethod
+    def _validatemaxretries(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Max retries cannot be negative")
+        return v
 
-   @fieldvalidator('maxredirects')
-   @classmethod
-   def _validatemaxredirects(cls, v: int) -> int:
-       if v < 0:
-           raise ValueError("Max redirects cannot be negative")
-       return v
+    @fieldvalidator('maxredirects')
+    @classmethod
+    def _validatemaxredirects(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Max redirects cannot be negative")
+        return v
+
+    def cascadefromengine(self, engineconfig: 'EngineConfig') -> 'SessionConfig':
+        if not engineconfig.cascade:
+            return self
+
+        # Only apply overrides where current value matches default
+
+        overrides = engineconfig.sessionoverrides()
+        updates = {}
+        defaults = SessionConfig()
+
+        for k,v in overrides.items():
+            if hasattr(self, k) and hasattr(defaults, k):
+                current = getattr(self, k)
+                default = getattr(defaults, k)
+
+                if current == default:
+                    updates[k] = v
+
+        if not updates:
+            return self
+
+        return self.model_copy(update=updates)
 
 class EngineConfig(PydModel):
     """Configuration for request engines."""
     verify: bool = True
     timeout: t.Optional[float] = None
     # add more later
+
+    cascade: bool = True # whether to cascade values to dependant component configurations
 
     ## pydantic model config ##
     model_config = {"frozen": True}
@@ -280,7 +307,7 @@ class EngineConfig(PydModel):
         Toggle `nonulls` flag to `False` to include `None` values
         """
         overrides = {
-            'verify': self.verify,
+            'verifyssl': self.verify,
             'timeout': self.timeout
         }
         overrides.update(updates)
@@ -336,6 +363,34 @@ class BackendConfig(PydModel):
     def _validateretryattempts(cls, v: int) -> int:
         if (v < 0): #! shouldnt we just be using the pydantic Field.ge?
             raise ValueError("Retry attempts cannot be negative")
+        return v
+
+class PersistenceConfig(PydModel):
+    """Configuration for persistence behavior"""
+    cookies: bool = True
+    headers: bool = True
+    tokens: bool = False  # For auth tokens
+    file: t.Optional[Path] = None
+    format: str = "json"  # json, pickle, etc.
+    autoload: bool = True
+    autosave: bool = True
+
+    ## field validators ##
+    @fieldvalidator('file')
+    @classmethod
+    def _validatefile(cls, v: t.Any) -> t.Optional[Path]:
+        if v is None:
+            return None
+        try:
+            return Path(v)
+        except Exception as e:
+            raise ValueError(f"Invalid file path: {e}")
+
+    @fieldvalidator('format')
+    @classmethod
+    def _validateformat(cls, v: str) -> str:
+        if v not in ('json', 'pickle'):
+            raise ValueError("Format must be 'json' or 'pickle'")
         return v
 
 class PayloadConfig(PydModel):

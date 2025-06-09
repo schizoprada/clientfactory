@@ -67,14 +67,6 @@ class SessionProtocol(t.Protocol):
         """
         ...
 
-    def setengine(self, engine: RequestEngineProtocol) -> None:
-        """
-        Set HTTP engine for session.
-
-        Args:
-            engine: HTTP transport engine
-        """
-        ...
 
     def close(self) -> None:
         """Close session and clean up resources."""

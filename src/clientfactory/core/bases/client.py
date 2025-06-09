@@ -10,11 +10,12 @@ import abc, typing as t
 from clientfactory.core.models import (
     ClientConfig, RequestModel, ResponseModel
 )
+
 from clientfactory.core.protos import (
-    RequestEngineProtocol, AuthProtocol, SessionProtocol
+    RequestEngineProtocol, SessionProtocol, BackendProtocol
 )
-from clientfactory.engines.requestslib import RequestsEngine
-from clientfactory.sessions.standard import StandardSession
+from clientfactory.core.bases.engine import BaseEngine
+from clientfactory.core.bases.auth import BaseAuth
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.resource import BaseResource
@@ -30,16 +31,15 @@ class BaseClient(abc.ABC):
     def __init__(
         self,
         config: t.Optional[ClientConfig] = None,
-        engine: t.Optional[RequestEngineProtocol] = None,
-        auth: t.Optional[AuthProtocol] = None,
-        session: t.Optional[SessionProtocol] = None,
+        engine: t.Optional[BaseEngine] = None,
+        backend: t.Optional[BackendProtocol] = None,
         **kwargs: t.Any
     ) -> None:
         """Initialize client with configuration and components."""
+        from clientfactory.engines.requestslib import RequestsEngine
         self._config: ClientConfig = (config or ClientConfig(**kwargs))
-        self._engine: RequestEngineProtocol = (engine or RequestsEngine()) #! shouldnt we force a default here?
-        self._auth: t.Optional[AuthProtocol] = auth
-        self._session: SessionProtocol = (session or StandardSession()) #! shouldnt we force a default here?
+        self._engine: BaseEngine = (engine or RequestsEngine()) #! handle config passing
+        self._backend: t.Optional[BackendProtocol] = backend
         self._resources: t.Dict[str, 'BaseResource'] = {}
         self._closed: bool = False
 
@@ -86,10 +86,7 @@ class BaseClient(abc.ABC):
 
     def close(self) -> None:
         """Close client and cleanup resources."""
-        if self._session:
-            self._session.close()
-        elif self._engine:
-            self._engine.close()
+        #!
         self._closed = True
 
     ## concretes ##
@@ -113,21 +110,7 @@ class BaseClient(abc.ABC):
         return list(self._resources.keys())
 
     ## component access ##
-    def getconfig(self) -> ClientConfig:
-        """Get client configuration."""
-        return self._config
-
-    def getengine(self) -> RequestEngineProtocol:
-        """Get HTTP Engine"""
-        return self._engine
-
-    def getauth(self) -> t.Optional[AuthProtocol]:
-        """Get authentication provider."""
-        return self._auth
-
-    def getsession(self) -> SessionProtocol:
-        """Get session manager."""
-        return self._session
+    #! to be reimplemented
 
     ## context management ##
     def __enter__(self) -> BaseClient:

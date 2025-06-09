@@ -13,7 +13,8 @@ from .config import (
     MethodConfig, ResourceConfig,
     ClientConfig, SessionConfig,
     EngineConfig, AuthConfig,
-    BackendConfig, PayloadConfig
+    BackendConfig, PayloadConfig,
+    PersistenceConfig
 )
 from .request import (
     RequestModel, ResponseModel,

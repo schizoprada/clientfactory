@@ -7,5 +7,6 @@ from .client import BaseClient
 from .engine import BaseEngine
 from .resource import BaseResource
 from .session import BaseSession
+from .persistence import BasePersistence
 
 from .declarative import Declarative

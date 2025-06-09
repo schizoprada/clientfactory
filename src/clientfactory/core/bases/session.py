@@ -9,7 +9,8 @@ import abc, typing as t
 
 from clientfactory.core.models import RequestModel, ResponseModel, SessionConfig
 from clientfactory.core.protos import (
-    SessionProtocol, AuthProtocol, RequestEngineProtocol
+    SessionProtocol, AuthProtocol, RequestEngineProtocol,
+    PersistenceProtocol
 )
 
 class BaseSession(SessionProtocol, abc.ABC):
@@ -22,11 +23,13 @@ class BaseSession(SessionProtocol, abc.ABC):
     def __init__(
         self,
         auth: t.Optional[AuthProtocol] = None,
+        persistence: t.Optional[PersistenceProtocol] = None,
         config: t.Optional[SessionConfig] = None,
         **kwargs: t.Any
     ) -> None:
         """Initialize session with engine and auth."""
         self._auth: t.Optional[AuthProtocol] = auth
+        self._persistence: t.Optional[PersistenceProtocol] = persistence
         self._config: SessionConfig = (config or SessionConfig(**kwargs))
         self._closed: bool = False
         self._obj: t.Any = self._setup()
@@ -39,6 +42,12 @@ class BaseSession(SessionProtocol, abc.ABC):
         and apply any configurations.
         """
         ...
+
+    @abc.abstractmethod
+    def _cleanup(self) -> None:
+        """
+        Clean up session resources.
+        """
 
     @abc.abstractmethod
     def _preparerequest(self, request: RequestModel) -> RequestModel:
@@ -68,6 +77,32 @@ class BaseSession(SessionProtocol, abc.ABC):
         """Check if session is still open"""
         if self._closed:
             raise RuntimeError("Session is closed")
+
+    def _loadpersistentstate(self) -> None:
+        """Load session state from persistence"""
+        if not self._persistence:
+            return
+
+        state = self._persistence.load()
+
+        if ('cookies' in state) and (hasattr(self._obj, 'cookies')):
+            self._obj.cookies.update(state['cookies'])
+
+        if ('headers' in state) and (hasattr(self._obj, 'headers')):
+            self._obj.headers.update(state['headers'])
+
+
+    def _savepersistentstate(self) -> None:
+        """Save session state to persistence"""
+        if not self._persistence:
+            return
+
+        state = {}
+        if hasattr(self._obj, 'cookies'):
+            state['cookies'] = dict(self._obj.cookies)
+        if hasattr(self._obj, 'headers'):
+            state['headers'] = dict(self._obj.headers)
+
 
     ## core methods ##
     def preparerequest(self, request: RequestModel) -> RequestModel:
@@ -126,6 +161,7 @@ class BaseSession(SessionProtocol, abc.ABC):
     ## lifecycle management ##
     def close(self) -> None:
         """Close session and cleanup resources"""
+        self._cleanup()
         self._closed = True
 
     ## component management ##
@@ -141,3 +177,9 @@ class BaseSession(SessionProtocol, abc.ABC):
     def __exit__(self, exc_type: t.Any, exc_val: t.Any, exc_tb: t.Any) -> None:
         """Exit context manager"""
         self.close()
+
+    ## properties ##
+    @property
+    def obj(self) -> t.Any:
+        """The library-specific session object"""
+        return self._obj
