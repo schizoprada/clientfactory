@@ -16,18 +16,23 @@ from clientfactory.core.protos import (
 )
 from clientfactory.core.bases.engine import BaseEngine
 from clientfactory.core.bases.auth import BaseAuth
+from clientfactory.core.bases.declarative import Declarative
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.resource import BaseResource
 
 
-class BaseClient(abc.ABC):
+class BaseClient(abc.ABC, Declarative):
     """
     Abstract base class for API clients.
 
     Handles resource discovery, configuration management, and provides
     the main interface for interacting with APIs.
     """
+    __declcomps__: set = {'auth', 'persistence', 'session', 'engine', 'backend'}
+    __declattrs__: set = {'baseurl', 'version', 'name', 'description'}
+    __declconfs__: set = {'timeout', 'verifyssl', 'allowredirects', 'cascade'}
+
     def __init__(
         self,
         config: t.Optional[ClientConfig] = None,

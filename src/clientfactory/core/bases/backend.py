@@ -11,9 +11,9 @@ from clientfactory.core.protos import BackendProtocol
 from clientfactory.core.models import (
     BackendConfig, RequestModel, ResponseModel
 )
+from clientfactory.core.bases.declarative import Declarative
 
-
-class BaseBackend(BackendProtocol, abc.ABC):
+class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
     """
     Abstract base class for response processing backends.
 
@@ -21,6 +21,9 @@ class BaseBackend(BackendProtocol, abc.ABC):
     and response processing. Concrete implementations handle specific
     API protocols (REST, GraphQL, Algolia, etc.).
     """
+    __declcomps__: set = set()
+    __declattrs__: set = {'endpoint', 'apiversion', 'format'}
+    __declconfs__: set = {'timeout', 'retries', 'raiseonerror', 'autoparse'}
 
     def __init__(
         self,

@@ -19,10 +19,55 @@ class Declarative(metaclass=DeclarativeMeta):
     - Metadata management and inheritance
     - Runtime access to discovered elements
     """
+    # no __declarable__
     _decltype: DeclarativeType
     _declmetadata: t.Dict[str, t.Any]
     _declcomponents: t.Dict[str, type]
     _declmethods: t.Dict[str, t.Dict[str, t.Any]]
+    _declconfigs: t.Dict[str, t.Any]
+    _declattrs: t.Dict[str, t.Any]
+
+    def _resolveconfigs(self, conf: t.Any = None, **provided: t.Any) -> t.Any:
+        """Resolve config from declarations and merge with provided config."""
+        # Implementation depends on mapping flow we decide later
+        pass
+
+    def _resolveattributes(self, **provided: t.Any) -> dict:
+        """Resolve attributes from declarations and provided values."""
+        declarable: set = getattr(self.__class__, '__declattrs__', set())
+        declared: dict = getattr(self.__class__, '_declattrs', {})
+        resolved: dict = {}
+
+        for name in declarable:
+            if (name in provided):
+                resolved[name] = provided[name]
+            elif name in declared:
+                resolved[name] = declared[name]
+            else:
+                resolved[name] = None
+
+        return resolved
+
+    def _resolvecomponents(self, **provided: t.Any) -> dict:
+        """Resolve components from declarations and constructor params."""
+        declarable: set = getattr(self.__class__, '__declcomps__', set())
+        declared: dict = getattr(self.__class__, '_declcomponents', {})
+        resolved: dict = {}
+
+        for name in declarable:
+            # constructor param beats declaration
+            if (name in provided):
+                resolved[name] = provided[name]
+            elif (name in declared):
+                declaration = declared[name]
+                if (declaration['type'] == 'class'):
+                    resolved[name] = declaration['value']() # lazy instantiation
+                else:
+                    resolved[name] = declaration['value']
+            else:
+                resolved[name] = None
+
+        return resolved
 
     @classmethod
     def getmetadata(cls, k: str, default: t.Any = None) -> t.Any:

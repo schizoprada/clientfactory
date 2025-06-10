@@ -1,5 +1,16 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.7.8] -- *2025-06-10*
+* Complete declarative component discovery system
++ DeclarativeMeta metaclass with __declcomps__, __declattrs__, __declconfs__ discovery
++ Component resolution system with constructor override behavior
++ Fixed metaclass conflicts by removing Protocol inheritance (structural conformance maintained)
++ All Base* classes inherit from Declarative with proper __decl*__ sets defined
++ Component hierarchy system: Client → Engine → Session → Auth/Persistence
++ Lazy instantiation for class declarations vs direct instance usage
++ Comprehensive test suite: 18 passing tests covering discovery and resolution
++ Foundation for declarative syntax: __auth__ = MyAuth, timeout = 30, headers = {...}
+
 ## [0.7.7] -- *2025-06-09*
 * Complete V3 architecture foundation established
 + BaseClient abstract class with resource discovery and component management

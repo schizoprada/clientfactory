@@ -12,14 +12,19 @@ from clientfactory.core.protos import (
     SessionProtocol, AuthProtocol, RequestEngineProtocol,
     PersistenceProtocol
 )
+from clientfactory.core.bases.declarative import Declarative
 
-class BaseSession(SessionProtocol, abc.ABC):
+class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     """
     Abstract base class for session lifecycle management.
 
     Handles request preparation, authentication, and response processing.
     Concrete implementations define specific session behaviors.
     """
+    __declcomps__: set = {'auth', 'persistence'}
+    __declattrs__: set = {'headers', 'cookies', 'useragent'}
+    __declconfs__: set = {'timeout', 'retries', 'verifyssl', 'allowredirects', 'maxredirects'}
+
     def __init__(
         self,
         auth: t.Optional[AuthProtocol] = None,

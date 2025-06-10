@@ -10,14 +10,19 @@ import abc, typing as t
 from clientfactory.core.protos import RequestEngineProtocol, SessionProtocol
 from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel, EngineConfig, SessionConfig
 from clientfactory.core.bases.session import BaseSession
+from clientfactory.core.bases.declarative import Declarative
 
-class BaseEngine(RequestEngineProtocol, abc.ABC):
+class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
     """
     Abstract base class for HTTP request engines.
 
     Provides common functionality and enforces protocol interface.
     Concrete implementations handle library-specific details.
     """
+    __declcomps__: set = {'auth', 'persistence', 'session'}
+    __declattrs__: set = {'poolsize', 'adapter'}
+    __declconfs__: set = {'timeout', 'verify', 'retries'}
+
     def __init__(
         self,
         config: t.Optional[EngineConfig] = None,

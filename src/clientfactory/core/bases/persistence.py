@@ -10,14 +10,18 @@ from pathlib import Path
 
 from clientfactory.core.protos.persistence import PersistenceProtocol
 from clientfactory.core.models.config import PersistenceConfig
+from clientfactory.core.bases.declarative import Declarative
 
-class BasePersistence(PersistenceProtocol, abc.ABC):
+class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
     """
     Abstract base class for session state persistence.
 
     Provides common functionality and enforces protocol interface.
     Concrete implementations handle specific storage mechanisms.
     """
+    __declcomps__: set = set()
+    __declattrs__: set = {'path', 'format'}
+    __declconfs__: set = {'autoload', 'autosave', 'timeout'}
 
     def __init__(
         self,

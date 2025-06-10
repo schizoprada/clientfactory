@@ -3,16 +3,18 @@
 ...
 """
 from __future__ import annotations
-import inspect, typing as t
+import abc, inspect, typing as t
 
 from clientfactory.core.models import DeclarativeType, DECLARATIVE
 
-class DeclarativeMeta(type):
+class DeclarativeMeta(abc.ABCMeta):
     """
     Metaclass for declarative components.
 
     Handles automatic discovery of nested classes, methods, and attributes
     during class creation. Populates metadata dictionaries for runtime access.
+
+    Inherits from ABCMeta to avoid metaclass conflicts with abstract base classes.
     """
 
     def __new__(mcs, name: str, bases: tuple, namespace: dict, **kwargs):
@@ -23,17 +25,64 @@ class DeclarativeMeta(type):
         setattr(cls, '_declmetadata', {})
         setattr(cls, '_declcomponents', {})
         setattr(cls, '_declmethods', {})
+        setattr(cls, '_declconfigs', {})
+        setattr(cls, '_declattrs', {})
 
         # process class attributes and discover elements
         mcs._discovercomponents(cls, namespace)
+        mcs._discoverconfigs(cls, namespace)
+        mcs._discoverattrs(cls, namespace)
         mcs._discovermethods(cls, namespace)
         mcs._inherit(cls, bases)
 
         return cls
 
     @classmethod
+    def _discoverconfigs(mcs, cls: type, namespace: dict) -> None:
+        """Discover config attributes based on class's __declconfs__ set."""
+        declconfs = getattr(cls, '__declconfs__', set())
+
+        for name, value in namespace.items():
+            if (name in declconfs) and (not callable(value)): #! revise this
+                cls._declconfigs[name] = value
+
+    @classmethod
+    def _discoverattrs(mcs, cls: type, namespace: dict) -> None:
+        """Discover general attributes based on class's __declattrs__ set."""
+
+        declattrs = getattr(cls, '__declattrs__', set())
+
+        for name, value in namespace.items():
+            if (name in declattrs) and (not callable(value)): #! revise this
+                cls._declattrs[name] = value
+
+
+
+    @classmethod
+    def _discoverdunders(mcs, cls: type, namespace: dict) -> None:
+        """Discover components via __component__ pattern."""
+        declcomps = getattr(cls, '__declcomps__', set()) # get valid declcomps
+
+        isdunder = lambda x: x.startswith('__') and x.endswith('__')
+        stripdunder = lambda x: x.lstrip('__').rstrip('__')
+
+        for name, value in namespace.items():
+            if isdunder(name):
+                compname = stripdunder(name)
+                if compname in declcomps:
+                    if inspect.isclass(value):
+                        # store class for lazy instantiation
+                        cls._declcomponents[compname] = {'type': 'class', 'value': value}
+                    else:
+                        # store instance directly
+                        cls._declcomponents[compname] = {'type': 'instance', 'value': value}
+
+
+    @classmethod
     def _discovercomponents(mcs, cls: type, namespace: dict) -> None:
         """Discover nested classes that should be treated as components."""
+        # start with dunder declarations
+        mcs._discoverdunders(cls, namespace)
         for name, value in namespace.items():
             if inspect.isclass(value) and hasattr(value, '_decltype'):
                 cls._declcomponents[name.lower()] = value

@@ -9,14 +9,19 @@ import abc, typing as t
 
 from clientfactory.core.models import RequestModel, AuthConfig
 from clientfactory.core.protos import AuthProtocol
+from clientfactory.core.bases.declarative import Declarative
 
-class BaseAuth(AuthProtocol, abc.ABC):
+class BaseAuth(abc.ABC, Declarative): #! add back in AuthProtocol,
     """
     Abstract base class for authentication providers.
 
     Provides common functionality and enforces protocol interface.
     Concrete implementations handle specific auth strategies.
     """
+    __declcomps__: set = set()
+    __declattrs__: set = {'token', 'username', 'password', 'key', 'scheme'}
+    __declconfs__: set = {'timeout', 'retries', 'autorefresh'}
+
     def __init__(
         self,
         config: t.Optional[AuthConfig] = None,

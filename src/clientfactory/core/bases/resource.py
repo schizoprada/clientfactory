@@ -15,17 +15,21 @@ from clientfactory.core.protos import (
     SessionProtocol, BackendProtocol, PayloadProtocol
 )
 from clientfactory.core.bases.session import BaseSession
+from clientfactory.core.bases.declarative import Declarative
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
 
-class BaseResource(abc.ABC):
+class BaseResource(abc.ABC, Declarative):
     """
     Abstract base class for API resources.
 
     Handles method discovery, URL construction, and request building.
     Resources represent logical groupings of related API endpoints.
     """
+    __declcomps__: set = {'auth', 'backend', 'persistence', 'session'}
+    __declattrs__: set = {'path', 'name', 'description', 'tags'}
+    __declconfs__: set = {'timeout', 'retries'}
 
     def __init__(
         self,
