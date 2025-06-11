@@ -7,8 +7,12 @@ Core infrastructure for declarative component discovery and metadata management.
 from __future__ import annotations
 import abc, typing as t
 
-from clientfactory.core.models import DeclarativeType, DECLARATIVE
+from pydantic import BaseModel as PydModel
+
 from clientfactory.core.metas import DeclarativeMeta
+from clientfactory.core.models import (
+    DeclarativeType, DECLARATIVE, DeclarableConfig
+)
 
 class Declarative(metaclass=DeclarativeMeta):
     """
@@ -27,26 +31,55 @@ class Declarative(metaclass=DeclarativeMeta):
     _declconfigs: t.Dict[str, t.Any]
     _declattrs: t.Dict[str, t.Any]
 
-    def _resolveconfigs(self, conf: t.Any = None, **provided: t.Any) -> t.Any:
-        """Resolve config from declarations and merge with provided config."""
-        # Implementation depends on mapping flow we decide later
-        pass
+    @abc.abstractmethod
+    def _resolveattributes(self, attributes: dict) -> None:
+        """Apply collected attributes to the component. Subclasses must implement."""
+        ...
 
-    def _resolveattributes(self, **provided: t.Any) -> dict:
-        """Resolve attributes from declarations and provided values."""
+    def _resolveconfig(self, confclass: t.Type, conf: t.Any = None, **provided: t.Any) -> t.Any:
+        """Resolve config from declarations and merge with provided config."""
+        declarable: set = getattr(self.__class__, '__declconfs__', set())
+        declared: dict = getattr(self.__class__, '_declconfigs', {})
+
+        configvalues = {}
+        for name in declarable:
+            if name in provided:
+                configvalues[name] = provided[name]
+            elif name in declared:
+                configvalues[name] = declared[name]
+            # skip if neither provided not declared (config defaults)
+
+        if conf is not None:
+            # update existing config with resolved values
+            if isinstance(conf, PydModel):
+                return conf.model_copy(update=configvalues)
+            # if its not a pydantic model, try updating directly
+            else:
+                for k,v in configvalues.items():
+                    if hasattr(conf, k):
+                        setattr(conf, k, v)
+                return conf
+
+        if issubclass(confclass, DeclarableConfig):
+            return confclass.FromDeclarations(configvalues)
+        # fallback for non-declarable
+        return confclass(**configvalues)
+
+    def _collectattributes(self, **provided: t.Any) -> dict:
+        """Collect attributes from declarations and provided values."""
         declarable: set = getattr(self.__class__, '__declattrs__', set())
         declared: dict = getattr(self.__class__, '_declattrs', {})
-        resolved: dict = {}
+        collected: dict = {}
 
         for name in declarable:
             if (name in provided):
-                resolved[name] = provided[name]
+                collected[name] = provided[name]
             elif name in declared:
-                resolved[name] = declared[name]
+                collected[name] = declared[name]
             else:
-                resolved[name] = None
+                collected[name] = None
 
-        return resolved
+        return collected
 
     def _resolvecomponents(self, **provided: t.Any) -> dict:
         """Resolve components from declarations and constructor params."""
@@ -56,7 +89,7 @@ class Declarative(metaclass=DeclarativeMeta):
 
         for name in declarable:
             # constructor param beats declaration
-            if (name in provided):
+            if (name in provided) and (provided[name] is not None):
                 resolved[name] = provided[name]
             elif (name in declared):
                 declaration = declared[name]
@@ -98,3 +131,25 @@ class Declarative(metaclass=DeclarativeMeta):
     def getmethod(cls, name: str) -> t.Optional[t.Dict[str, t.Any]]:
         """Get method info by name."""
         return cls._declmethods.get(name)
+
+    ## ahhh ##
+    def __getattr__(self, name: str) -> t.Any:
+        """Handle dynamic property access for components."""
+
+        declcomps = getattr(self.__class__, '__declcomps__', set())
+
+        # check if this is attribute has a declarable counterpart
+        if name.lower() in declcomps:
+            abstraction = f'_{name.lower()}'
+            if hasattr(self, abstraction):
+                if name.islower(): # return abstract class
+                    return getattr(self, abstraction)
+                elif name.isupper(): # return the actual raw object
+                    component = getattr(self, abstraction)
+                    if hasattr(component, '_obj'):
+                        return component._obj
+                    return component
+            raise AttributeError(f"({self.__class__.__name__}:{name}) component not initialized ")
+
+        # standard attribute error for non-component attributes
+        raise AttributeError(f"({self.__class__.__name__}) has no attribute: {name}")

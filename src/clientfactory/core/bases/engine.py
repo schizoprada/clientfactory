@@ -11,6 +11,7 @@ from clientfactory.core.protos import RequestEngineProtocol, SessionProtocol
 from clientfactory.core.models import HTTPMethod, RequestModel, ResponseModel, EngineConfig, SessionConfig
 from clientfactory.core.bases.session import BaseSession
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
     """
@@ -19,6 +20,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
     Provides common functionality and enforces protocol interface.
     Concrete implementations handle library-specific details.
     """
+    __protocols: set  = {RequestEngineProtocol}
     __declcomps__: set = {'auth', 'persistence', 'session'}
     __declattrs__: set = {'poolsize', 'adapter'}
     __declconfs__: set = {'timeout', 'verify', 'retries'}
@@ -30,10 +32,23 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         **kwargs: t.Any
     ) -> None:
         """Initialize engine with configuration.""" #! update to reflect new signature
+        # 1. resolve components
+        components = self._resolvecomponents(session=session)
+        self._session: BaseSession = (components['session'] or self._setupsession(kwargs.get('sessionconfig')))
+
+        # 2. resolve config
+        self._config: EngineConfig = self._resolveconfig(EngineConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
         self._closed: bool = False
-        self._config: EngineConfig = (config or EngineConfig(**kwargs))
-        self._session: BaseSession = (session or self._setupsession(kwargs.get('sessionconfig')))
         self._kwargs: dict = kwargs
+
+    def _resolveattributes(self, attributes: dict) -> None:
+        self._poolsize: int = attributes.get('poolsize', 10)
+        self._adapter: t.Any = attributes.get('adapter', None)
 
     @abc.abstractmethod
     def _setupsession(self, config: t.Optional[SessionConfig] = None) -> BaseSession:

@@ -13,3 +13,14 @@ __url__ = "https://github.com/schizoprada/schematix"
 
 # Version info tuple for programmatic access
 VERSION = tuple(map(int, __version__.split('.')))
+
+# filter out pydantic warnings for models
+def HeyPydanticSTFU():
+    import re, warnings
+    warnings.filterwarnings(
+        "ignore",
+        message=re.escape('Field name "json"') + r'.*shadows an attribute in parent "BaseModel"',
+        category=UserWarning,
+    )
+
+HeyPydanticSTFU()

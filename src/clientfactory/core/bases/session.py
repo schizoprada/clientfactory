@@ -13,6 +13,7 @@ from clientfactory.core.protos import (
     PersistenceProtocol
 )
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     """
@@ -21,6 +22,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     Handles request preparation, authentication, and response processing.
     Concrete implementations define specific session behaviors.
     """
+    __protocols: set = {SessionProtocol}
     __declcomps__: set = {'auth', 'persistence'}
     __declattrs__: set = {'headers', 'cookies', 'useragent'}
     __declconfs__: set = {'timeout', 'retries', 'verifyssl', 'allowredirects', 'maxredirects'}
@@ -33,11 +35,24 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         **kwargs: t.Any
     ) -> None:
         """Initialize session with engine and auth."""
-        self._auth: t.Optional[AuthProtocol] = auth
-        self._persistence: t.Optional[PersistenceProtocol] = persistence
-        self._config: SessionConfig = (config or SessionConfig(**kwargs))
+        # 1. resolve components
+        components = self._resolvecomponents(auth=auth, persistence=persistence)
+        self._auth: t.Optional[AuthProtocol] = components['auth']
+        self._persistence: t.Optional[PersistenceProtocol] = components['persistence']
+
+        # 2. resolve config
+        self._config: SessionConfig = self._resolveconfig(SessionConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
         self._closed: bool = False
         self._obj: t.Any = self._setup()
+
+    def _resolveattributes(self, attributes: dict) -> None:
+        self._headers: dict = attributes.get('headers', {})
+        self._cookies: dict = attributes.get('cookies', {})
 
     ## abstracts ##
     @abc.abstractmethod

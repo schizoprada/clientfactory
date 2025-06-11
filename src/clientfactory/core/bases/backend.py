@@ -12,6 +12,7 @@ from clientfactory.core.models import (
     BackendConfig, RequestModel, ResponseModel
 )
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
     """
@@ -21,6 +22,7 @@ class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
     and response processing. Concrete implementations handle specific
     API protocols (REST, GraphQL, Algolia, etc.).
     """
+    __protocols: set = {BackendProtocol}
     __declcomps__: set = set()
     __declattrs__: set = {'endpoint', 'apiversion', 'format'}
     __declconfs__: set = {'timeout', 'retries', 'raiseonerror', 'autoparse'}
@@ -30,7 +32,21 @@ class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
         config: t.Optional[BackendConfig] = None,
         **kwargs: t.Any
     ) -> None:
-        self._config: BackendConfig = (config or BackendConfig(**kwargs))
+        # 1. resolve components
+        components = self._resolvecomponents() # not needed
+
+        # 2. resolve config
+        self._config: BackendConfig = self._resolveconfig(BackendConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
+
+    def _resolveattributes(self, attributes: dict) -> None:
+        self.endpoint: str = attributes.get('endpoint', '')
+        self.apiversion: str = attributes.get('apiversion', 'v1')
+        self.format: str = attributes.get('format', 'json')
 
     @abc.abstractmethod
     def _formatrequest(self, request: RequestModel, data: t.Dict[str, t.Any]) -> RequestModel:

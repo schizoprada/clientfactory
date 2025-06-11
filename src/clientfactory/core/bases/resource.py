@@ -16,6 +16,7 @@ from clientfactory.core.protos import (
 )
 from clientfactory.core.bases.session import BaseSession
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
@@ -40,16 +41,30 @@ class BaseResource(abc.ABC, Declarative):
         **kwargs: t.Any,
     ) -> None:
         """Initialize resource with client and configuration."""
+        # 1. resolve components
+        components = self._resolvecomponents(session=session, backend=backend)
+        self._session: BaseSession = (components['session'] or client._engine._session)
+        self._backend: t.Optional[BackendProtocol] = (components['backend'] or client._backend)
+
+        # 2. resolve config
+        self._config: ResourceConfig = self._resolveconfig(ResourceConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
         self._client: 'BaseClient' = client
-        self._config: ResourceConfig = (config or ResourceConfig(**kwargs)) #! lets implement a helper method at somepoint to filter kwargs based on class trying to be instantiated
-        self._session: BaseSession = (session or client._engine._session)
-        self._backend: t.Optional[BackendProtocol] = (backend or client._backend)
         self._methods: t.Dict[str, t.Callable] = {}
         self._children: t.Dict[str, 'BaseResource'] = {}
 
         # initialize resources
         self._initmethods()
         self._initchildren()
+
+    def _resolveattributes(self, attributes: dict) -> None:
+        self.path: str = attributes.get('path', '')
+        self.name: str = attributes.get('name', '')
+        self.description: str = attributes.get('description', '')
 
     ## abstracts ##
     @abc.abstractmethod

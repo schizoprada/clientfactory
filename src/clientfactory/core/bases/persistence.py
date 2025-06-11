@@ -11,6 +11,7 @@ from pathlib import Path
 from clientfactory.core.protos.persistence import PersistenceProtocol
 from clientfactory.core.models.config import PersistenceConfig
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
     """
@@ -19,6 +20,7 @@ class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
     Provides common functionality and enforces protocol interface.
     Concrete implementations handle specific storage mechanisms.
     """
+    __protocols: set = {PersistenceProtocol}
     __declcomps__: set = set()
     __declattrs__: set = {'path', 'format'}
     __declconfs__: set = {'autoload', 'autosave', 'timeout'}
@@ -29,13 +31,26 @@ class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
         **kwargs: t.Any
     ) -> None:
         """Initialize persistence manager."""
-        self._config: PersistenceConfig = (config or PersistenceConfig(**kwargs))
+        # 1. resolve components
+        components = self._resolvecomponents() # not needed
+
+        # 2. resolve config
+        self._config: PersistenceConfig = self._resolveconfig(PersistenceConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
         self._state: t.Dict[str, t.Any] = {}
         self._loaded: bool = False
-
         if self._config.autoload:
             self._state = self.load()
             self._loaded = True
+
+
+    def _resolveattributes(self, attributes: dict) -> None:
+        self.path: str = attributes.get('path', '')
+        self.format: str = attributes.get('format', 'json')
 
     @abc.abstractmethod
     def _save(self, data: t.Dict[str, t.Any]) -> None:

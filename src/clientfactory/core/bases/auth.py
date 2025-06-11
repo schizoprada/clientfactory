@@ -10,6 +10,7 @@ import abc, typing as t
 from clientfactory.core.models import RequestModel, AuthConfig
 from clientfactory.core.protos import AuthProtocol
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 class BaseAuth(abc.ABC, Declarative): #! add back in AuthProtocol,
     """
@@ -18,6 +19,7 @@ class BaseAuth(abc.ABC, Declarative): #! add back in AuthProtocol,
     Provides common functionality and enforces protocol interface.
     Concrete implementations handle specific auth strategies.
     """
+    __protocols: set = {AuthProtocol}
     __declcomps__: set = set()
     __declattrs__: set = {'token', 'username', 'password', 'key', 'scheme'}
     __declconfs__: set = {'timeout', 'retries', 'autorefresh'}
@@ -28,10 +30,25 @@ class BaseAuth(abc.ABC, Declarative): #! add back in AuthProtocol,
         **kwargs: t.Any
     ) -> None:
         """Initialize auth provider."""
+        # 1. resolve components
+        components = self._resolvecomponents() # none needed
+
+        # 2. resolve config
+        self._config: AuthConfig = self._resolveconfig(AuthConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
         self._authenticated: bool = False
-        self._config: AuthConfig = (config or AuthConfig(**kwargs))
         self._kwargs: dict = kwargs
 
+    def _resolveattributes(self, attributes: dict) -> None:
+        self.token: str = attributes.get('token', '')
+        self.username: str = attributes.get('username', '')
+        self.password: str = attributes.get('password', '')
+        self.key: str = attributes.get('key', '')
+        self.scheme: str = attributes.get('scheme', '')
 
     ## abstracts ##
     @abc.abstractmethod

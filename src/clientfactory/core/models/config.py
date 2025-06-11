@@ -32,6 +32,10 @@ if t.TYPE_CHECKING:
 #! TODO:
 ## consolidate validators
 
+class PayloadConfig(PydModel):
+    """..."""
+    ...
+
 class MethodConfig(PydModel):
     """Configuration for a resource method"""
     name: str
@@ -195,7 +199,16 @@ class ClientConfig(PydModel):
             raise ValueError("Base URL must start with http:// or https://")
         return v
 
-class SessionConfig(PydModel):
+class DeclarableConfig(PydModel):
+    """..."""
+    @classmethod
+    def FromDeclarations(cls, declared: dict, **overrides: t.Any) -> t.Self:
+        """Create config from declarative values with optional overrides."""
+        merged = declared.copy()
+        merged.update(overrides)
+        return cls(**merged)
+
+class SessionConfig(DeclarableConfig):
     """Configuration for session behavior."""
     ## connection settings ##
     timeout: float = 30.0
@@ -267,7 +280,7 @@ class SessionConfig(PydModel):
 
         return self.model_copy(update=updates)
 
-class EngineConfig(PydModel):
+class EngineConfig(DeclarableConfig):
     """Configuration for request engines."""
     verify: bool = True
     timeout: t.Optional[float] = None
@@ -315,7 +328,7 @@ class EngineConfig(PydModel):
             return {k:v for k,v in overrides.items() if v is not None}
         return overrides
 
-class AuthConfig(PydModel):
+class AuthConfig(DeclarableConfig):
     """Configuration for authentication providers."""
     autorefresh: bool = True
     retryattempts: int = 3
@@ -340,7 +353,7 @@ class AuthConfig(PydModel):
             raise ValueError("Timeout must be positive")
         return v
 
-class BackendConfig(PydModel):
+class BackendConfig(DeclarableConfig):
     """Configuration for response processing backends."""
     ## exception handling ##
     raiseonerror: bool = True
@@ -365,7 +378,7 @@ class BackendConfig(PydModel):
             raise ValueError("Retry attempts cannot be negative")
         return v
 
-class PersistenceConfig(PydModel):
+class PersistenceConfig(DeclarableConfig):
     """Configuration for persistence behavior"""
     cookies: bool = True
     headers: bool = True
@@ -392,7 +405,3 @@ class PersistenceConfig(PydModel):
         if v not in ('json', 'pickle'):
             raise ValueError("Format must be 'json' or 'pickle'")
         return v
-
-class PayloadConfig(PydModel):
-    """..."""
-    ...

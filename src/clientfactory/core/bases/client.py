@@ -17,6 +17,7 @@ from clientfactory.core.protos import (
 from clientfactory.core.bases.engine import BaseEngine
 from clientfactory.core.bases.auth import BaseAuth
 from clientfactory.core.bases.declarative import Declarative
+from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.resource import BaseResource
@@ -42,9 +43,19 @@ class BaseClient(abc.ABC, Declarative):
     ) -> None:
         """Initialize client with configuration and components."""
         from clientfactory.engines.requestslib import RequestsEngine
-        self._config: ClientConfig = (config or ClientConfig(**kwargs))
-        self._engine: BaseEngine = (engine or RequestsEngine()) #! handle config passing
-        self._backend: t.Optional[BackendProtocol] = backend
+
+        # 1. resolve components
+        components = self._resolvecomponents(engine=engine, backend=backend)
+        self._engine: BaseEngine = (components['engine'] or RequestsEngine())
+        self._backend: t.Optional[BackendProtocol] = components['backend']
+
+        # 2. resolve config
+        self._config: ClientConfig = self._resolveconfig(ClientConfig, config, **kwargs)
+
+        # 3. resolve attributes
+        attrs = self._collectattributes(**kwargs)
+        self._resolveattributes(attrs)
+
         self._resources: t.Dict[str, 'BaseResource'] = {}
         self._closed: bool = False
 
@@ -53,6 +64,12 @@ class BaseClient(abc.ABC, Declarative):
 
         # discover resources
         self._discoverresources()
+
+
+    def _resolveattributes(self, attributes: dict) -> None:
+        self.baseurl: str = attributes.get('baseurl', '')
+        self._version: str = attributes.get('version', '1.0.0')
+        self._name = attributes.get('name', self.__class__.__name__.lower())
 
 
     ## abstracts ##

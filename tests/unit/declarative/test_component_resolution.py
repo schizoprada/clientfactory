@@ -29,6 +29,9 @@ class TestComponentResolution:
             __declcomps__ = {'auth', 'persistence'}
             __auth__ = MockAuth  # Class declaration
 
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
+
         instance = TestClass()
         resolved = instance._resolvecomponents(auth=auth_instance)
 
@@ -43,6 +46,8 @@ class TestComponentResolution:
             __declcomps__ = {'auth', 'persistence'}
             __auth__ = MockAuth
             __persistence__ = MockPersistence
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
 
         instance = TestClass()
         resolved = instance._resolvecomponents()
@@ -67,6 +72,8 @@ class TestComponentResolution:
         class TestClass(Declarative):
             __declcomps__ = {'auth'}
             __auth__ = CountingAuth  # Class reference
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
 
         # Class creation shouldn't instantiate
         assert instantiation_count == 0
@@ -87,6 +94,8 @@ class TestComponentResolution:
         class TestClass(Declarative):
             __declcomps__ = {'auth'}
             __auth__ = auth_instance  # Instance
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
 
         instance = TestClass()
         resolved = instance._resolvecomponents()
@@ -101,6 +110,8 @@ class TestComponentResolution:
         class TestClass(Declarative):
             __declcomps__ = {'auth', 'persistence', 'backend'}
             __auth__ = MockAuth
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
             # persistence and backend not declared
 
         instance = TestClass()
@@ -116,12 +127,14 @@ class TestComponentResolution:
         class TestClass(Declarative):
             __declcomps__ = {'auth'}
             __auth__ = MockAuth
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
 
         instance = TestClass()
         resolved = instance._resolvecomponents(auth=None)
 
-        # None should win over declaration (explicit override)
-        assert resolved['auth'] is None
+        # None shouldn't win over declaration
+        assert resolved['auth'] is not None
 
     def test_mixed_constructor_and_declarations(self):
         """Test mixed resolution with some constructor params and some declarations."""
@@ -132,6 +145,8 @@ class TestComponentResolution:
             __declcomps__ = {'auth', 'persistence'}
             __auth__ = MockAuth  # Will be overridden
             __persistence__ = MockPersistence  # Will be used
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
 
         instance = TestClass()
         resolved = instance._resolvecomponents(auth=constructor_auth)
@@ -147,6 +162,8 @@ class TestComponentResolution:
         class TestClass(Declarative):
             __declcomps__ = set()  # No declarable components
             __auth__ = MockAuth  # Should be ignored
+            def _resolveattributes(self, attributes: dict) -> None:
+                pass
 
         instance = TestClass()
         resolved = instance._resolvecomponents(auth=MockAuth())

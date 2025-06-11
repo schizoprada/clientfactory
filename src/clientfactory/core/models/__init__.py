@@ -14,7 +14,7 @@ from .config import (
     ClientConfig, SessionConfig,
     EngineConfig, AuthConfig,
     BackendConfig, PayloadConfig,
-    PersistenceConfig
+    PersistenceConfig, DeclarableConfig
 )
 from .request import (
     RequestModel, ResponseModel,

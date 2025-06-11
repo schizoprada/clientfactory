@@ -2,3 +2,4 @@
 """..."""
 
 from .declarative import DeclarativeMeta
+from .protocoled import ProtocoledAbstractMeta
