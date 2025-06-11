@@ -21,6 +21,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
     Concrete implementations handle library-specific details.
     """
     __protocols: set  = {RequestEngineProtocol}
+    __declaredas__: str = 'engine'
     __declcomps__: set = {'auth', 'persistence', 'session'}
     __declattrs__: set = {'poolsize', 'adapter'}
     __declconfs__: set = {'timeout', 'verify', 'retries'}
@@ -34,12 +35,14 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         """Initialize engine with configuration.""" #! update to reflect new signature
         # 1. resolve components
         components = self._resolvecomponents(session=session)
-        self._session: BaseSession = (components['session'] or self._setupsession(kwargs.get('sessionconfig')))
 
         # 2. resolve config
         self._config: EngineConfig = self._resolveconfig(EngineConfig, config, **kwargs)
 
-        # 3. resolve attributes
+        # 3. resolve session after config (needs _config)
+        self._session: BaseSession = (components['session'] or self._setupsession(kwargs.get('sessionconfig')))
+
+        # 4. resolve attributes
         attrs = self._collectattributes(**kwargs)
         self._resolveattributes(attrs)
 

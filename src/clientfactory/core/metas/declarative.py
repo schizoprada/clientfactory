@@ -34,8 +34,47 @@ class DeclarativeMeta(abc.ABCMeta):
         mcs._discoverattrs(cls, namespace)
         mcs._discovermethods(cls, namespace)
         mcs._inherit(cls, bases)
-
+        mcs._injectparent(cls)
         return cls
+
+    @classmethod
+    def _injectparent(mcs, cls: type) -> None:
+        """Wrap __init__ to automatically inject parent references via stack inspection."""
+        print(f"DEBUG: _injectparent called for {cls.__name__}")
+        oginit = getattr(cls, '__init__', None)
+        if not oginit:
+            print(f"DEBUG: No __init__ found for {cls.__name__}, skipping")
+            return
+
+        def wrappedinit(self, *args, **kwargs):
+            print(f"DEBUG: wrappedinit called for {self.__class__.__name__}")
+            import inspect
+            currentframe = inspect.currentframe()
+            if currentframe:
+                frame = currentframe.f_back
+                framecount = 0
+                while frame and framecount < 10:  # Prevent infinite loops
+                    framecount += 1
+                    print(f"DEBUG: Checking frame {framecount}: {frame.f_code.co_name}")
+                    if ('self' in frame.f_locals):
+                        potentialparent = frame.f_locals['self']
+                        print(f"DEBUG: Found potential parent: {potentialparent.__class__.__name__}")
+                        if (
+                            hasattr(potentialparent, '_declcomponents') and
+                            potentialparent is not self
+                        ):
+                            print(f"DEBUG: Setting parent {potentialparent.__class__.__name__} for {self.__class__.__name__}")
+                            self._parent = potentialparent
+                            break
+                    frame = frame.f_back
+
+                if not hasattr(self, '_parent'):
+                    print(f"DEBUG: No parent found for {self.__class__.__name__}")
+
+            oginit(self, *args, **kwargs)
+
+        setattr(cls, '__init__', wrappedinit)
+        print(f"DEBUG: Wrapped __init__ for {cls.__name__}")
 
     @classmethod
     def _discoverconfigs(mcs, cls: type, namespace: dict) -> None:
@@ -79,14 +118,34 @@ class DeclarativeMeta(abc.ABCMeta):
 
 
     @classmethod
+    def _discovernested(mcs, cls: type, namespace: dict) -> None:
+        """Discover nested classes that should be treated as components"""
+        declcomps = getattr(cls, '__declcomps__', set())
+
+        for name, value in namespace.items():
+            if inspect.isclass(value):
+
+                # check if nested class has a __declaredas attribute in its MRO
+                for base in value.__mro__:
+                    declaredas = getattr(base, '__declaredas__', None)
+                    if declaredas:
+                        if declaredas in declcomps:
+                            cls._declcomponents[declaredas] = {'type': 'class', 'value': value}
+                            break
+
+                # fallback
+                if hasattr(value, '_decltype'):
+                    cls._declcomponents[name.lower()] = value
+                    value._parent = cls
+
+
+
+    @classmethod
     def _discovercomponents(mcs, cls: type, namespace: dict) -> None:
-        """Discover nested classes that should be treated as components."""
+        """Discover all components (dunder & nested)"""
         # start with dunder declarations
         mcs._discoverdunders(cls, namespace)
-        for name, value in namespace.items():
-            if inspect.isclass(value) and hasattr(value, '_decltype'):
-                cls._declcomponents[name.lower()] = value
-                value._parent = cls
+        mcs._discovernested(cls, namespace)
 
     @classmethod
     def _discovermethods(mcs, cls: type, namespace: dict) -> None:

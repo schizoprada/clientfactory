@@ -20,6 +20,7 @@ class BaseAuth(abc.ABC, Declarative): #! add back in AuthProtocol,
     Concrete implementations handle specific auth strategies.
     """
     __protocols: set = {AuthProtocol}
+    __declaredas__: str = 'auth'
     __declcomps__: set = set()
     __declattrs__: set = {'token', 'username', 'password', 'key', 'scheme'}
     __declconfs__: set = {'timeout', 'retries', 'autorefresh'}

@@ -27,6 +27,8 @@ class MockSession(BaseSession):
     def _processresponse(self, response):
         return response
 
+    def _cleanup(self) -> None:
+        pass
 
 class MockEngine(BaseEngine):
     def _setupsession(self, config=None):
@@ -157,6 +159,8 @@ class TestDeclarativeComponents:
 
         class TestSession(MockSession):
             __auth__ = CountingAuth  # Class reference
+
+
 
         # Class creation shouldn't instantiate
         assert instantiation_count == 0

@@ -23,6 +23,7 @@ class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
     API protocols (REST, GraphQL, Algolia, etc.).
     """
     __protocols: set = {BackendProtocol}
+    __declaredas__: str = 'backend'
     __declcomps__: set = set()
     __declattrs__: set = {'endpoint', 'apiversion', 'format'}
     __declconfs__: set = {'timeout', 'retries', 'raiseonerror', 'autoparse'}

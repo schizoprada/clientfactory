@@ -81,25 +81,59 @@ class Declarative(metaclass=DeclarativeMeta):
 
         return collected
 
+
     def _resolvecomponents(self, **provided: t.Any) -> dict:
         """Resolve components from declarations and constructor params."""
+        #print(f"DEBUG: _resolvecomponents called on {self.__class__.__name__}")
         declarable: set = getattr(self.__class__, '__declcomps__', set())
-        declared: dict = getattr(self.__class__, '_declcomponents', {})
-        resolved: dict = {}
+        #print(f"DEBUG: declarable components: {declarable}")
 
+
+        # collect declarations from component hierarchy
+        declared: dict = {}
+        current = self
+        traversed = []
+        while current:
+            traversed.append(current.__class__.__name__)
+            currentdeclared = getattr(current.__class__, '_declcomponents', {})
+            #print(f"DEBUG: {current.__class__.__name__}._declcomponents: {currentdeclared}")
+            for name, decl in currentdeclared.items():
+                if name not in declared:
+                    declared[name] = decl
+                    #print(f"DEBUG: Added declaration {name}: {decl}")
+
+
+            # move up hierarchy
+            old = current
+            current = getattr(current, '_parent', None) or getattr(current, '_client', None)
+            #print(f"DEBUG: Moving from {old.__class__.__name__} to {current.__class__.__name__ if current else None}")
+
+            if current is old:
+                #print(f"DEBUG: Breaking infinite loop at {current.__class__.__name__}")
+                break
+
+
+        #print(f"DEBUG: Hierarchy Traversed: {' -> '.join(traversed)}")
+        #print(f"DEBUG: Final Declared Dict: {declared}")
+
+        resolved: dict = {}
         for name in declarable:
-            # constructor param beats declaration
             if (name in provided) and (provided[name] is not None):
                 resolved[name] = provided[name]
+                #print(f"DEBUG: Used Provided {name}: {provided[name]}")
             elif (name in declared):
                 declaration = declared[name]
                 if (declaration['type'] == 'class'):
-                    resolved[name] = declaration['value']() # lazy instantiation
+                    resolved[name] = declaration['value']() # needs insantiation
+                    #print(f"DEBUG: Instantiated {name}: {resolved[name]}")
                 else:
-                    resolved[name] = declaration['value']
+                    resolved[name] = declaration['value'] # already instantiated
+                    #print(f"DEBUG: Used instance {name}: {resolved[name]}")
             else:
                 resolved[name] = None
+                #print(f"DEBUG: Set {name} to None")
 
+        #print(f"DEBUG: Final resolved dict: {resolved}")
         return resolved
 
     @classmethod
@@ -133,6 +167,38 @@ class Declarative(metaclass=DeclarativeMeta):
         return cls._declmethods.get(name)
 
     ## ahhh ##
+
+    def _findcomponent(self, name: str) -> t.Any:
+        """Traverse component hierarchy to find component."""
+        #print(f"DEBUG: Looking for _{name} in {self.__class__.__name__}")
+        #print(f"DEBUG: self.__dict__ keys: {list(self.__dict__.keys())}")
+        abstraction = f'_{name}'
+        # direct
+        if abstraction in self.__dict__:
+            #print(f"DEBUG: Found {abstraction} directly")
+            return self.__dict__[abstraction]
+
+        # check child components
+        declcomps = getattr(self.__class__, '__declcomps__', set())
+        #print(f"DEBUG: Checking children in declared components: {declcomps}")
+        for comp in declcomps:
+            childattr = f'_{comp}'
+            if childattr in self.__dict__:
+                child = self.__dict__[childattr]
+                #print(f"DEBUG: found child ({childattr}): {child}")
+                if child and hasattr(child, abstraction):
+                    #print(f"DEBUG: Child ({childattr}) has {abstraction}")
+                    result =  getattr(child, abstraction)
+                    #print(f"DEBUG: getattr returned: {result}")
+                    return result
+                elif child and hasattr(child, '_findcomponent'):
+                    #print(f"DEBUG: Recursing into {childattr}")
+                    found = child._findcomponent(name)
+                    if found:
+                        return found
+        #print(f"DEBUG: Could not find: {abstraction}")
+        return None
+
     def __getattr__(self, name: str) -> t.Any:
         """Handle dynamic property access for components."""
 
@@ -140,16 +206,14 @@ class Declarative(metaclass=DeclarativeMeta):
 
         # check if this is attribute has a declarable counterpart
         if name.lower() in declcomps:
-            abstraction = f'_{name.lower()}'
-            if hasattr(self, abstraction):
-                if name.islower(): # return abstract class
-                    return getattr(self, abstraction)
-                elif name.isupper(): # return the actual raw object
-                    component = getattr(self, abstraction)
+            component = self._findcomponent(name.lower())
+            if component is not None:
+                if name.islower():
+                    return component
+                elif name.isupper():
                     if hasattr(component, '_obj'):
                         return component._obj
                     return component
             raise AttributeError(f"({self.__class__.__name__}:{name}) component not initialized ")
-
         # standard attribute error for non-component attributes
         raise AttributeError(f"({self.__class__.__name__}) has no attribute: {name}")

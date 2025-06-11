@@ -21,6 +21,7 @@ class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
     Concrete implementations handle specific storage mechanisms.
     """
     __protocols: set = {PersistenceProtocol}
+    __declaredas__: str = 'persistence'
     __declcomps__: set = set()
     __declattrs__: set = {'path', 'format'}
     __declconfs__: set = {'autoload', 'autosave', 'timeout'}

@@ -14,11 +14,14 @@ from .config import (
     ClientConfig, SessionConfig,
     EngineConfig, AuthConfig,
     BackendConfig, PayloadConfig,
-    PersistenceConfig, DeclarableConfig
+    PersistenceConfig, DeclarableConfig,
+    forwardref
 )
 from .request import (
     RequestModel, ResponseModel,
     Param, Payload, BoundPayload
 )
+
+#forwardref()
 
 #! define __all__

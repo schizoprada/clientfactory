@@ -23,6 +23,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     Concrete implementations define specific session behaviors.
     """
     __protocols: set = {SessionProtocol}
+    __declaredas__: str = 'session'
     __declcomps__: set = {'auth', 'persistence'}
     __declattrs__: set = {'headers', 'cookies', 'useragent'}
     __declconfs__: set = {'timeout', 'retries', 'verifyssl', 'allowredirects', 'maxredirects'}

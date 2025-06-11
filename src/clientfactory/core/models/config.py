@@ -137,9 +137,9 @@ class ClientConfig(PydModel):
     baseurl: str = ""
 
     ## component configuration ##
-    engine: t.Optional['RequestEngineProtocol'] = None
-    auth: t.Optional['AuthProtocol'] = None
-    backend: t.Optional['BackendProtocol'] = None
+    engine: t.Any = None #! removed: t.Optional['RequestEngineProtocol'] // figure out later
+    auth: t.Any = None #! removed: t.Optional['AuthProtocol']
+    backend: t.Any = None #! removed: t.Optional['BackendProtocol']
     sessiontype: SessionType = SessionType.STANDARD
 
     ## default request settings ##
@@ -152,7 +152,7 @@ class ClientConfig(PydModel):
     cookies: t.Dict[str, str] = Field(default_factory=dict)
 
     ## resource registry ##
-    resources: t.Dict[str, 'BaseResource'] = Field(default_factory=dict)
+    resources: t.Dict[str, t.Any] = Field(default_factory=dict) #! removed: 'BaseResource'
 
     ## metadata ##
     name: str = ""
@@ -405,3 +405,11 @@ class PersistenceConfig(DeclarableConfig):
         if v not in ('json', 'pickle'):
             raise ValueError("Format must be 'json' or 'pickle'")
         return v
+
+
+def forwardref():
+    from clientfactory.core.protos import (
+        AuthProtocol, BackendProtocol, PayloadProtocol,
+        RequestEngineProtocol, SessionProtocol
+    )
+    ClientConfig.model_rebuild()

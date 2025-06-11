@@ -20,6 +20,9 @@ from clientfactory.core.models import (
 class RequestsSession(BaseSession):
     """Session implementation using requests.Session"""
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
     def _cleanup(self) -> None:
         if self._obj is not None:
             self._obj.close()
@@ -72,6 +75,10 @@ class RequestsEngine(BaseEngine):
 
     Default engine for ClientFactory with full feature support.
     """
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
 
     def _setupsession(self, config: t.Optional[SessionConfig] = None) -> RequestsSession:
         """Create RequestsSession with config cascade."""

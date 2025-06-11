@@ -1,5 +1,17 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.7.9] -- *2025-06-11*
+* Complete declarative property access system with component hierarchy traversal
++ Property access pattern: lowercase returns abstraction, UPPERCASE returns raw ._obj
++ Automatic parent reference injection via metaclass stack inspection - zero constructor changes needed
++ Component hierarchy traversal: client.auth finds auth anywhere in component tree (Client → Engine → Session → Auth)
++ Mixed declaration styles support: both __component__ = Class and nested class Component(BaseComponent) patterns work
++ __declaredas__ attribute on base classes for automatic nested component discovery
++ Comprehensive test coverage: property access, component resolution, declarative components, inheritance chain
++ End-to-end working example: client.auth, client.SESSION, client.engine._session._auth all functional
++ Robust error handling with descriptive messages for uninitialized/undeclared components
++ Foundation complete for real-world usage with concrete implementations
+
 ## [0.7.8] -- *2025-06-10*
 * Complete declarative component discovery system
 + DeclarativeMeta metaclass with __declcomps__, __declattrs__, __declconfs__ discovery
