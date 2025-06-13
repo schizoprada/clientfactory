@@ -40,14 +40,14 @@ class DeclarativeMeta(abc.ABCMeta):
     @classmethod
     def _injectparent(mcs, cls: type) -> None:
         """Wrap __init__ to automatically inject parent references via stack inspection."""
-        print(f"DEBUG: _injectparent called for {cls.__name__}")
+        #print(f"DEBUG: _injectparent called for {cls.__name__}")
         oginit = getattr(cls, '__init__', None)
         if not oginit:
-            print(f"DEBUG: No __init__ found for {cls.__name__}, skipping")
+            #print(f"DEBUG: No __init__ found for {cls.__name__}, skipping")
             return
 
         def wrappedinit(self, *args, **kwargs):
-            print(f"DEBUG: wrappedinit called for {self.__class__.__name__}")
+            #print(f"DEBUG: wrappedinit called for {self.__class__.__name__}")
             import inspect
             currentframe = inspect.currentframe()
             if currentframe:
@@ -55,26 +55,26 @@ class DeclarativeMeta(abc.ABCMeta):
                 framecount = 0
                 while frame and framecount < 10:  # Prevent infinite loops
                     framecount += 1
-                    print(f"DEBUG: Checking frame {framecount}: {frame.f_code.co_name}")
+                    #print(f"DEBUG: Checking frame {framecount}: {frame.f_code.co_name}")
                     if ('self' in frame.f_locals):
                         potentialparent = frame.f_locals['self']
-                        print(f"DEBUG: Found potential parent: {potentialparent.__class__.__name__}")
+                        #print(f"DEBUG: Found potential parent: {potentialparent.__class__.__name__}")
                         if (
                             hasattr(potentialparent, '_declcomponents') and
                             potentialparent is not self
                         ):
-                            print(f"DEBUG: Setting parent {potentialparent.__class__.__name__} for {self.__class__.__name__}")
+                            #print(f"DEBUG: Setting parent {potentialparent.__class__.__name__} for {self.__class__.__name__}")
                             self._parent = potentialparent
                             break
                     frame = frame.f_back
 
                 if not hasattr(self, '_parent'):
-                    print(f"DEBUG: No parent found for {self.__class__.__name__}")
+                    pass #print(f"DEBUG: No parent found for {self.__class__.__name__}")
 
             oginit(self, *args, **kwargs)
 
         setattr(cls, '__init__', wrappedinit)
-        print(f"DEBUG: Wrapped __init__ for {cls.__name__}")
+        #print(f"DEBUG: Wrapped __init__ for {cls.__name__}")
 
     @classmethod
     def _discoverconfigs(mcs, cls: type, namespace: dict) -> None:
@@ -95,20 +95,22 @@ class DeclarativeMeta(abc.ABCMeta):
             if (name in declattrs) and (not callable(value)): #! revise this
                 cls._declattrs[name] = value
 
-
-
     @classmethod
     def _discoverdunders(mcs, cls: type, namespace: dict) -> None:
         """Discover components via __component__ pattern."""
         declcomps = getattr(cls, '__declcomps__', set()) # get valid declcomps
+        print(f"DEBUG _discoverdunders: cls={cls.__name__}, declcomps={declcomps}")
 
         isdunder = lambda x: x.startswith('__') and x.endswith('__')
         stripdunder = lambda x: x.lstrip('__').rstrip('__')
 
         for name, value in namespace.items():
+            print(f"DEBUG _discoverdunders: checking {name}={value}")
             if isdunder(name):
                 compname = stripdunder(name)
+                print(f"DEBUG _discoverdunders: found dunder {name} -> {compname}")
                 if compname in declcomps:
+                    print(f"DEBUG _discoverdunders: {compname} is declarable, storing")
                     if inspect.isclass(value):
                         # store class for lazy instantiation
                         cls._declcomponents[compname] = {'type': 'class', 'value': value}

@@ -65,29 +65,47 @@ class Declarative(metaclass=DeclarativeMeta):
         # fallback for non-declarable
         return confclass(**configvalues)
 
-    def _collectattributes(self, **provided: t.Any) -> dict:
+    def _collectattributes(self, attrmap: t.Optional[dict] = None, **provided: t.Any) -> dict:
         """Collect attributes from declarations and provided values."""
         declarable: set = getattr(self.__class__, '__declattrs__', set())
         declared: dict = getattr(self.__class__, '_declattrs', {})
         collected: dict = {}
+        mappedattrs: dict = (attrmap or {})
+        print(f"DEBUG _collectattributes: declarable = {declarable}")
+        print(f"DEBUG _collectattributes: declared = {declared}")
+        print(f"DEBUG _collectattributes: provided = {provided}")
+
+
+        # get config defaults if available
+        defaults = {}
+        if hasattr(self, '_config'):
+            defaults = self._config.model_dump()
+
+
+        # helper lambda
+        ismapped = lambda name, mapping: (name in mappedattrs) and (mappedattrs[name] in mapping)
 
         for name in declarable:
             if (name in provided):
                 collected[name] = provided[name]
             elif name in declared:
                 collected[name] = declared[name]
+            elif name in defaults:
+                collected[name] = defaults[name]
             else:
                 collected[name] = None
 
         return collected
-
+        #! TODO: implement `attrmap` kwarg for name-value check mapping
 
     def _resolvecomponents(self, **provided: t.Any) -> dict:
         """Resolve components from declarations and constructor params."""
-        #print(f"DEBUG: _resolvecomponents called on {self.__class__.__name__}")
         declarable: set = getattr(self.__class__, '__declcomps__', set())
-        #print(f"DEBUG: declarable components: {declarable}")
+        print(f"DEBUG _resolvecomponents: {self.__class__.__name__} declarable={declarable}")
+        print(f"DEBUG _resolvecomponents: provided={provided}")
 
+        declcomps = getattr(self.__class__, '_declcomponents', {})
+        print(f"DEBUG _resolvecomponents: raw _declcomponents={declcomps}")
 
         # collect declarations from component hierarchy
         declared: dict = {}
@@ -96,44 +114,32 @@ class Declarative(metaclass=DeclarativeMeta):
         while current:
             traversed.append(current.__class__.__name__)
             currentdeclared = getattr(current.__class__, '_declcomponents', {})
-            #print(f"DEBUG: {current.__class__.__name__}._declcomponents: {currentdeclared}")
             for name, decl in currentdeclared.items():
                 if name not in declared:
                     declared[name] = decl
-                    #print(f"DEBUG: Added declaration {name}: {decl}")
 
 
             # move up hierarchy
             old = current
             current = getattr(current, '_parent', None) or getattr(current, '_client', None)
-            #print(f"DEBUG: Moving from {old.__class__.__name__} to {current.__class__.__name__ if current else None}")
 
             if current is old:
-                #print(f"DEBUG: Breaking infinite loop at {current.__class__.__name__}")
                 break
 
-
-        #print(f"DEBUG: Hierarchy Traversed: {' -> '.join(traversed)}")
-        #print(f"DEBUG: Final Declared Dict: {declared}")
 
         resolved: dict = {}
         for name in declarable:
             if (name in provided) and (provided[name] is not None):
                 resolved[name] = provided[name]
-                #print(f"DEBUG: Used Provided {name}: {provided[name]}")
             elif (name in declared):
                 declaration = declared[name]
                 if (declaration['type'] == 'class'):
                     resolved[name] = declaration['value']() # needs insantiation
-                    #print(f"DEBUG: Instantiated {name}: {resolved[name]}")
                 else:
                     resolved[name] = declaration['value'] # already instantiated
-                    #print(f"DEBUG: Used instance {name}: {resolved[name]}")
             else:
                 resolved[name] = None
-                #print(f"DEBUG: Set {name} to None")
-
-        #print(f"DEBUG: Final resolved dict: {resolved}")
+        print(f"DEBUG _resolvecomponents: final declared={declared}")
         return resolved
 
     @classmethod

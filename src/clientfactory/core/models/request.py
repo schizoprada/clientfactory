@@ -284,8 +284,8 @@ class Param(sex.Field):
 
     def __set_name__(self, owner, name):
         """Called when Param is assigned to a class attribute."""
-        print(f"DEBUG: __set_name__ called with owner={owner}, name={name}")
-        print(f"DEBUG: Before - self.name={self.name}, self.target={self.target}")
+        #print(f"DEBUG: __set_name__ called with owner={owner}, name={name}")
+        #print(f"DEBUG: Before - self.name={self.name}, self.target={self.target}")
         # This is called by the metaclass with the actual attribute name
         if self.name is None:
             self.name = name
@@ -294,7 +294,7 @@ class Param(sex.Field):
         if self.target is None:
             self.target = self.name
 
-        print(f"DEBUG: After - self.name={self.name}, self.target={self.target}")
+        #print(f"DEBUG: After - self.name={self.name}, self.target={self.target}")
 
         # Call parent if it exists
         if hasattr(super(), '__set_name__'):

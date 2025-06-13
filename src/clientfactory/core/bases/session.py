@@ -55,6 +55,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         self._headers: dict = attributes.get('headers', {})
         self._cookies: dict = attributes.get('cookies', {})
 
+
     ## abstracts ##
     @abc.abstractmethod
     def _setup(self) -> t.Any:

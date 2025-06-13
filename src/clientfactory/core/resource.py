@@ -1,0 +1,122 @@
+# ~/clientfactory/src/clientfactory/core/resource.py
+"""
+Concrete Resource Implementation
+"""
+from __future__ import annotations
+import typing as t
+from urllib.parse import urljoin
+
+from clientfactory.core.bases import BaseResource
+from clientfactory.core.models import (
+    HTTPMethod, RequestModel, ResponseModel
+)
+
+if t.TYPE_CHECKING:
+    from clientfactory.core.bases import BaseClient
+
+
+class Resource(BaseResource):
+    """Standard concrete resource implementation"""
+
+    def _registermethod(self, method: t.Callable, name: t.Optional[str] = None) -> None:
+        mname = (name or method.__name__)
+        self._methods[mname] = method
+        setattr(self, mname, method)
+
+    def _registerchild(self, child: 'BaseResource', name: t.Optional[str] = None) -> None:
+        cname = (name or child.__class__.__name__.lower())
+        self._children[cname] = child
+        setattr(self, cname, child)
+
+    def _initmethods(self) -> None:
+        for attrname in dir(self.__class__):
+            if attrname.startswith('_'):
+                continue
+
+            attr = getattr(self.__class__, attrname)
+            if callable(attr) and hasattr(attr, '_methodconfig'):
+                bound = self._createboundmethod(attr)
+                self._registermethod(bound, attrname)
+
+
+    def _initchildren(self) -> None:
+        # only discover children if this resource is directly defined in the client class
+        # prevents infinite recursion when nested resources try to discover themselves
+
+        if hasattr(self._client, '_discoveringresources'):
+            return # skip, we're already in the resource discovery
+
+        for attrname in dir(self.__class__):
+            if attrname.startswith('_'):
+                continue
+
+            attr = getattr(self.__class__, attrname)
+            if (
+                isinstance(attr, type) and
+                issubclass(attr, Resource) and
+                attr is not Resource
+            ):
+                child = attr(
+                    client=self._client,
+                    config=getattr(attr, '_resourceconfig', None)
+                )
+                self._registerchild(child, attrname.lower())
+
+    def _buildrequest(self, method: t.Union[str, HTTPMethod], path: t.Optional[str] = None, **kwargs: t.Any) -> RequestModel:
+        if isinstance(method, str):
+            method = HTTPMethod(method.upper())
+
+        baseurl = self._client.baseurl.rstrip('/')
+        resourcepath = self.path.strip('/') if self.path else ''
+        methodpath = path.strip('/') if path else ''
+
+        parts = [baseurl]
+        if resourcepath:
+            parts.append(resourcepath)
+        if methodpath:
+            parts.append(methodpath)
+
+        url = '/'.join(parts)
+        return RequestModel(
+            method=method,
+            url=url,
+            **kwargs
+        )
+
+    def _createboundmethod(self, method: t.Callable) -> t.Callable:
+        methodconfig = getattr(method, '_methodconfig')
+
+        def bound(*args, **kwargs):
+            print(f"DEBUG bound: starting")
+            request = self._buildrequest(
+                method=methodconfig.method,
+                path=methodconfig.path,
+                **kwargs
+            )
+            print(f"DEBUG bound: built request = {request}")
+
+            if self._backend:
+                request = self._backend.formatrequest(request, kwargs)
+                print(f"DEBUG bound: formatted request = {request}")
+
+            response = self._session.send(request)
+            print(f"DEBUG bound: got response = {response}")
+
+            if self._backend:
+                processed = self._backend.processresponse(response)
+                print(f"DEBUG bound: processed response = {processed}")
+            else:
+                processed = response
+
+            if methodconfig.postprocess:
+                processed = methodconfig.postprocess(processed)
+                print(f"DEBUG bound: postprocessed response = {processed}")
+
+            print(f"DEBUG bound: returning = {processed}")
+            return processed
+
+        bound.__name__ = method.__name__
+        bound.__doc__ = method.__doc__
+        setattr(bound, '_methodconfig', methodconfig)
+
+        return bound

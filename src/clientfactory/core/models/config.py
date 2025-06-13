@@ -47,7 +47,7 @@ class MethodConfig(PydModel):
     postprocess: t.Optional[t.Callable] = None
 
     ## data handling ##
-    payload: t.Optional['PayloadProtocol'] = None
+    payload: t.Any = None
 
     ## metadata ##
     description: str = ""
@@ -80,8 +80,8 @@ class ResourceConfig(PydModel):
    children: t.Dict[str, ResourceConfig] = Field(default_factory=dict)
 
    ## processing ##
-   backend: t.Optional['BackendProtocol'] = None
-   payload: t.Optional['PayloadProtocol'] = None
+   backend: t.Any = None
+   payload: t.Any = None
 
    ## hierarchy ##
    parent: t.Optional[ResourceConfig] = None
@@ -235,6 +235,17 @@ class SessionConfig(DeclarableConfig):
     ## pydantic model config ##
     model_config = {"frozen": True}
 
+    ## properties ##
+    @computedfield
+    @property
+    def headers(self) -> dict:
+        return self.defaultheaders
+
+    @computedfield
+    @property
+    def cookies(self) -> dict:
+        return self.defaultcookies
+
     ## field validators ##
     @fieldvalidator('timeout')
     @classmethod
@@ -355,6 +366,12 @@ class AuthConfig(DeclarableConfig):
 
 class BackendConfig(DeclarableConfig):
     """Configuration for response processing backends."""
+
+    ## core metadata/identity ##
+    endpoint: str = ''
+    apiversion: str = 'v1'
+    format: str = 'json'
+
     ## exception handling ##
     raiseonerror: bool = True
     errortolerance: ToleranceType = ToleranceType.STRICT
@@ -383,17 +400,29 @@ class PersistenceConfig(DeclarableConfig):
     cookies: bool = True
     headers: bool = True
     tokens: bool = False  # For auth tokens
-    file: t.Optional[Path] = None
+    file: Path = Path(".clientfactorysession.json")
     format: str = "json"  # json, pickle, etc.
     autoload: bool = True
     autosave: bool = True
 
+    ## properties ##
+    @computedfield
+    @property
+    def path(self) -> Path:
+        """Get the file path with correct extension matching format."""
+        extensions = {"json": ".json", "pickle": ".pkl"}
+        expectedext = extensions.get(self.format, ".json")
+
+        # if file already has right extension, use as-is
+        if self.file.suffix == expectedext:
+            return self.file
+
+        return self.file.with_suffix(expectedext)
+
     ## field validators ##
     @fieldvalidator('file')
     @classmethod
-    def _validatefile(cls, v: t.Any) -> t.Optional[Path]:
-        if v is None:
-            return None
+    def _validatefile(cls, v: t.Any) -> Path:
         try:
             return Path(v)
         except Exception as e:
@@ -408,8 +437,16 @@ class PersistenceConfig(DeclarableConfig):
 
 
 def forwardref():
-    from clientfactory.core.protos import (
-        AuthProtocol, BackendProtocol, PayloadProtocol,
-        RequestEngineProtocol, SessionProtocol
-    )
-    ClientConfig.model_rebuild()
+    try:
+        from clientfactory.core.protos import (
+            AuthProtocol, BackendProtocol, PayloadProtocol,
+            RequestEngineProtocol, SessionProtocol
+        )
+        MethodConfig.model_rebuild()
+        ResourceConfig.model_rebuild()
+        ClientConfig.model_rebuild()
+    except ImportError:
+        # Protocols not available yet, will rebuild later
+        pass
+
+#forwardref()
