@@ -23,8 +23,8 @@ class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
     __protocols: set = {PersistenceProtocol}
     __declaredas__: str = 'persistence'
     __declcomps__: set = set()
-    __declattrs__: set = {'path', 'format'}
-    __declconfs__: set = {'autoload', 'autosave', 'timeout'}
+    __declattrs__: set = {'path', 'format'} #! revise
+    __declconfs__: set = {'autoload', 'autosave', 'timeout', 'file', 'format'}
 
     def __init__(
         self,

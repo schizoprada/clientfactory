@@ -410,6 +410,11 @@ class PersistenceConfig(DeclarableConfig):
     @property
     def path(self) -> Path:
         """Get the file path with correct extension matching format."""
+
+        # handle empty paths
+        if (not self.file) or (str(self.file) in ("", ".")):
+            return Path("")
+
         extensions = {"json": ".json", "pickle": ".pkl"}
         expectedext = extensions.get(self.format, ".json")
 

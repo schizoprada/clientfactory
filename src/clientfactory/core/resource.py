@@ -44,23 +44,40 @@ class Resource(BaseResource):
         # prevents infinite recursion when nested resources try to discover themselves
 
         if hasattr(self._client, '_discoveringresources'):
+            print("DEBUG _initchildren: Skipping due to _discoveringresources flag")
             return # skip, we're already in the resource discovery
+
+        print(f"DEBUG _initchildren: Starting discovery for {self.__class__.__name__}")
+        print(f"DEBUG _initchildren: dir(self.__class__) = {dir(self.__class__)}")
 
         for attrname in dir(self.__class__):
             if attrname.startswith('_'):
                 continue
 
+            print(f"DEBUG _initchildren: Checking attribute '{attrname}'")
             attr = getattr(self.__class__, attrname)
+            print(f"DEBUG _initchildren: attr = {attr}")
+            print(f"DEBUG _initchildren: isinstance(attr, type) = {isinstance(attr, type)}")
+
+            if isinstance(attr, type):
+                print(f"DEBUG _initchildren: issubclass(attr, Resource) = {issubclass(attr, Resource)}")
+                print(f"DEBUG _initchildren: attr is not Resource = {attr is not Resource}")
+
             if (
                 isinstance(attr, type) and
                 issubclass(attr, Resource) and
                 attr is not Resource
             ):
+                print(f"DEBUG _initchildren: Found nested resource: {attrname}")
                 child = attr(
                     client=self._client,
                     config=getattr(attr, '_resourceconfig', None)
                 )
                 self._registerchild(child, attrname.lower())
+            else:
+                print(f"DEBUG _initchildren: Skipping {attrname} - not a Resource class")
+
+        print(f"DEBUG _initchildren: Final children: {self._children}")
 
     def _buildrequest(self, method: t.Union[str, HTTPMethod], path: t.Optional[str] = None, **kwargs: t.Any) -> RequestModel:
         if isinstance(method, str):

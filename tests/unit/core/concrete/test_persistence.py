@@ -60,13 +60,16 @@ class TestPersistence:
         with tempfile.TemporaryDirectory() as temp_dir:
             nested_path = Path(temp_dir) / 'nested' / 'dir' / 'test.json'
 
-            persistence = Persistence(path=str(nested_path))
-            test_data = {'test': 'data'}
+            persistence = Persistence(file=str(nested_path))
+            test_data = {'headers': {'header': 'value'}}
 
             persistence.save(test_data)
-
-            assert nested_path.exists()
+            print(f"DEBUG test: persistence.path = {persistence.path}")
+            exists = nested_path.exists()
+            print(f"DEBUG test: nested path exists: {exists}")
+            assert exists
             loaded_data = persistence.load()
+            print(f"DEBUG test: loaded data: {loaded_data}")
             assert loaded_data == test_data
 
     def test_load_nonexistent_file(self):

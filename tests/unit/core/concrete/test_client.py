@@ -163,17 +163,17 @@ class TestClient:
     def test_discover_resources_with_config(self):
         """Test resource discovery with resource configs."""
         # Create a resource class with config
-        class TestResource(Resource):
+        class TestResourceClass(Resource):
             pass
 
         # Add config to the class
-        TestResource._resourceconfig = ResourceConfig(
+        TestResourceClass._resourceconfig = ResourceConfig(
             name="test_resource",
             path="test"
         )
 
         class TestClient(Client):
-            TestResource = TestResource
+            TestResource = TestResourceClass
 
         client = TestClient()
 

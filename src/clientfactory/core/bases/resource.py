@@ -28,6 +28,7 @@ class BaseResource(abc.ABC, Declarative):
     Handles method discovery, URL construction, and request building.
     Resources represent logical groupings of related API endpoints.
     """
+    __declaredas__: str = 'resource'
     __declcomps__: set = {'auth', 'backend', 'persistence', 'session'}
     __declattrs__: set = {'path', 'name', 'description', 'tags'}
     __declconfs__: set = {'timeout', 'retries'}

@@ -105,6 +105,8 @@ class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
         Base implementation checks HTTP status codes.
         Concrete backends can override for protocol-specific errors.
         """
+        if not self._config.raiseonerror:
+            return
         if not response.ok:
             response.raiseforstatus()
 

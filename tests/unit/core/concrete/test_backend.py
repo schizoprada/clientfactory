@@ -152,7 +152,7 @@ class TestBackend:
 
     def test_process_response_error(self):
         """Test processing error response."""
-        backend = Backend()
+        backend = Backend(raiseonerror=False)
         response = ResponseModel(
             statuscode=404,
             headers={},
