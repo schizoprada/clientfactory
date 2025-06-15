@@ -44,40 +44,41 @@ class Resource(BaseResource):
         # prevents infinite recursion when nested resources try to discover themselves
 
         if hasattr(self._client, '_discoveringresources'):
-            print("DEBUG _initchildren: Skipping due to _discoveringresources flag")
+            #print("DEBUG _initchildren: Skipping due to _discoveringresources flag")
             return # skip, we're already in the resource discovery
 
-        print(f"DEBUG _initchildren: Starting discovery for {self.__class__.__name__}")
-        print(f"DEBUG _initchildren: dir(self.__class__) = {dir(self.__class__)}")
+        #print(f"DEBUG _initchildren: Starting discovery for {self.__class__.__name__}")
+        #print(f"DEBUG _initchildren: dir(self.__class__) = {dir(self.__class__)}")
 
         for attrname in dir(self.__class__):
             if attrname.startswith('_'):
                 continue
 
-            print(f"DEBUG _initchildren: Checking attribute '{attrname}'")
+            #print(f"DEBUG _initchildren: Checking attribute '{attrname}'")
             attr = getattr(self.__class__, attrname)
-            print(f"DEBUG _initchildren: attr = {attr}")
-            print(f"DEBUG _initchildren: isinstance(attr, type) = {isinstance(attr, type)}")
+            #print(f"DEBUG _initchildren: attr = {attr}")
+            #print(f"DEBUG _initchildren: isinstance(attr, type) = {isinstance(attr, type)}")
 
             if isinstance(attr, type):
-                print(f"DEBUG _initchildren: issubclass(attr, Resource) = {issubclass(attr, Resource)}")
-                print(f"DEBUG _initchildren: attr is not Resource = {attr is not Resource}")
+                pass
+                #print(f"DEBUG _initchildren: issubclass(attr, Resource) = {issubclass(attr, Resource)}")
+                #print(f"DEBUG _initchildren: attr is not Resource = {attr is not Resource}")
 
             if (
                 isinstance(attr, type) and
                 issubclass(attr, Resource) and
                 attr is not Resource
             ):
-                print(f"DEBUG _initchildren: Found nested resource: {attrname}")
+                #print(f"DEBUG _initchildren: Found nested resource: {attrname}")
                 child = attr(
                     client=self._client,
                     config=getattr(attr, '_resourceconfig', None)
                 )
                 self._registerchild(child, attrname.lower())
             else:
-                print(f"DEBUG _initchildren: Skipping {attrname} - not a Resource class")
-
-        print(f"DEBUG _initchildren: Final children: {self._children}")
+                #print(f"DEBUG _initchildren: Skipping {attrname} - not a Resource class")
+                pass
+        #print(f"DEBUG _initchildren: Final children: {self._children}")
 
     def _buildrequest(self, method: t.Union[str, HTTPMethod], path: t.Optional[str] = None, **kwargs: t.Any) -> RequestModel:
         if isinstance(method, str):
@@ -104,32 +105,32 @@ class Resource(BaseResource):
         methodconfig = getattr(method, '_methodconfig')
 
         def bound(*args, **kwargs):
-            print(f"DEBUG bound: starting")
+            #print(f"DEBUG bound: starting")
             request = self._buildrequest(
                 method=methodconfig.method,
                 path=methodconfig.path,
                 **kwargs
             )
-            print(f"DEBUG bound: built request = {request}")
+            #print(f"DEBUG bound: built request = {request}")
 
             if self._backend:
                 request = self._backend.formatrequest(request, kwargs)
-                print(f"DEBUG bound: formatted request = {request}")
+                #print(f"DEBUG bound: formatted request = {request}")
 
             response = self._session.send(request)
-            print(f"DEBUG bound: got response = {response}")
+            #print(f"DEBUG bound: got response = {response}")
 
             if self._backend:
                 processed = self._backend.processresponse(response)
-                print(f"DEBUG bound: processed response = {processed}")
+                #print(f"DEBUG bound: processed response = {processed}")
             else:
                 processed = response
 
             if methodconfig.postprocess:
                 processed = methodconfig.postprocess(processed)
-                print(f"DEBUG bound: postprocessed response = {processed}")
+                #print(f"DEBUG bound: postprocessed response = {processed}")
 
-            print(f"DEBUG bound: returning = {processed}")
+            #print(f"DEBUG bound: returning = {processed}")
             return processed
 
         bound.__name__ = method.__name__

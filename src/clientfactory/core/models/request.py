@@ -95,8 +95,8 @@ class RequestModel(PydModel):
             'allow_redirects': self.allowredirects,
             'verify': self.verifyssl
         }
-        print(f"DEBUG | initial kwargs: {kwargs}")
-        print(f"DEBUG | received updates: {updates}")
+        #print(f"DEBUG | initial kwargs: {kwargs}")
+        #print(f"DEBUG | received updates: {updates}")
         if self.json is not None:
             kwargs['json'] = self.json
         elif self.data is not None:
@@ -106,7 +106,7 @@ class RequestModel(PydModel):
             kwargs['files'] = self.files
 
         kwargs.update(updates)
-        print(f"DEBUG | final kwargs: {kwargs}")
+        #print(f"DEBUG | final kwargs: {kwargs}")
         return kwargs
 
     ## computed fields ##
@@ -314,29 +314,29 @@ class BoundPayload:
         """Serialize using bound schema with ClientFactory target-key behavior."""
         result = {}
 
-        print(f"DEBUG BoundPayload: data = {data}")
-        print(f"DEBUG BoundPayload: _boundfields = {getattr(self.boundto, '_boundfields', 'NOT_FOUND')}")
+        #print(f"DEBUG BoundPayload: data = {data}")
+        #print(f"DEBUG BoundPayload: _boundfields = {getattr(self.boundto, '_boundfields', 'NOT_FOUND')}")
 
         # Use the bound fields, but apply ClientFactory target-key logic
         for fieldname, boundfield in self.boundto._boundfields.items():
-            print(f"DEBUG BoundPayload: Processing field '{fieldname}'")
-            print(f"DEBUG BoundPayload: boundfield = {boundfield}")
-            print(f"DEBUG BoundPayload: boundfield.target = {getattr(boundfield, 'target', 'NO_TARGET')}")
+            #print(f"DEBUG BoundPayload: Processing field '{fieldname}'")
+            #print(f"DEBUG BoundPayload: boundfield = {boundfield}")
+            #print(f"DEBUG BoundPayload: boundfield.target = {getattr(boundfield, 'target', 'NO_TARGET')}")
 
             try:
                 value = boundfield.extract(data)
-                print(f"DEBUG BoundPayload: extracted value = {value}")
+                #print(f"DEBUG BoundPayload: extracted value = {value}")
 
                 # Use target as key, just like Payload.transform()
                 key = getattr(boundfield, 'target', None) or fieldname
-                print(f"DEBUG BoundPayload: using key = {key}")
+                #print(f"DEBUG BoundPayload: using key = {key}")
 
                 result[key] = value
             except Exception as e:
-                print(f"DEBUG BoundPayload: Exception on field '{fieldname}': {e}")
+                #print(f"DEBUG BoundPayload: Exception on field '{fieldname}': {e}")
                 raise ValueError(f"Bound transform failed on field '{fieldname}': {e}")
 
-        print(f"DEBUG BoundPayload: final result = {result}")
+        #print(f"DEBUG BoundPayload: final result = {result}")
         return result
 
 class Payload(sex.Schema): #! PayloadProtocol removed

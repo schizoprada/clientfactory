@@ -15,6 +15,7 @@ from .config import (
     EngineConfig, AuthConfig,
     BackendConfig, PayloadConfig,
     PersistenceConfig, DeclarableConfig,
+    SearchResourceConfig,
     forwardref
 )
 from .request import (

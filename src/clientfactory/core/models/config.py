@@ -63,7 +63,7 @@ class MethodConfig(PydModel):
     ## field validators ##
     @fieldvalidator('name')
     @classmethod
-    def _vlaidatename(cls, v: str) -> str:
+    def _validatename(cls, v: str) -> str:
         if not v:
             raise ValueError("Method name is required")
         return v
@@ -440,6 +440,34 @@ class PersistenceConfig(DeclarableConfig):
             raise ValueError("Format must be 'json' or 'pickle'")
         return v
 
+class SearchResourceConfig(ResourceConfig):
+    """Configuration for search resources."""
+    payload: t.Any = None # avoiding circular imports, can handle reference matching inside validation methods
+    method: HTTPMethod = HTTPMethod.GET
+    searchmethod: str = "search"
+    oncall: bool = False
+
+    model_config = {"frozen": True}
+
+    @fieldvalidator('payload')
+    @classmethod
+    def _validatepayload(cls, p: t.Any) -> t.Any:
+        if p is None:
+            return None
+        from clientfactory.core.models.request import Payload
+        if (not isinstance(p, Payload)) and (not isinstance(p, type) and not issubclass(p, Payload)):
+            raise ValueError(f"SearchResourceConfig.payload must be Payload or typing.Type[Payload]")
+        return p
+
+    @fieldvalidator('method')
+    @classmethod
+    def _validatemethod(cls, m: t.Any) -> HTTPMethod:
+        if isinstance(m, HTTPMethod):
+            return m
+        try:
+            return HTTPMethod(m.upper())
+        except:
+	        raise ValueError(f"SearchResourceConfig.method must be one of: {', '.join(mt for mt in HTTPMethod)}")
 
 def forwardref():
     try:

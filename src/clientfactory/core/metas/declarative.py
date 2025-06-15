@@ -99,18 +99,18 @@ class DeclarativeMeta(abc.ABCMeta):
     def _discoverdunders(mcs, cls: type, namespace: dict) -> None:
         """Discover components via __component__ pattern."""
         declcomps = getattr(cls, '__declcomps__', set()) # get valid declcomps
-        print(f"DEBUG _discoverdunders: cls={cls.__name__}, declcomps={declcomps}")
+        #print(f"DEBUG _discoverdunders: cls={cls.__name__}, declcomps={declcomps}")
 
         isdunder = lambda x: x.startswith('__') and x.endswith('__')
         stripdunder = lambda x: x.lstrip('__').rstrip('__')
 
         for name, value in namespace.items():
-            print(f"DEBUG _discoverdunders: checking {name}={value}")
+            #print(f"DEBUG _discoverdunders: checking {name}={value}")
             if isdunder(name):
                 compname = stripdunder(name)
-                print(f"DEBUG _discoverdunders: found dunder {name} -> {compname}")
+                #print(f"DEBUG _discoverdunders: found dunder {name} -> {compname}")
                 if compname in declcomps:
-                    print(f"DEBUG _discoverdunders: {compname} is declarable, storing")
+                    #print(f"DEBUG _discoverdunders: {compname} is declarable, storing")
                     if inspect.isclass(value):
                         # store class for lazy instantiation
                         cls._declcomponents[compname] = {'type': 'class', 'value': value}

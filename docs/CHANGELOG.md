@@ -1,5 +1,22 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.1] -- *2025-06-15*
+* Specialized Resource implementations with declarative CRUD and search functionality
++ SearchResource: Specialized resource for search operations with automatic method generation
+ - Auto-generates search() method with payload validation through Payload/Param integration
+ - Configurable HTTP method (GET/POST), search method name, and callable instance support
+ - Dynamic docstring generation based on payload parameters
+ - Seamless backend integration for response processing
++ ManagedResource: Specialized resource for CRUD operations with standardized methods
+ - Declarative CRUD generation via __crud__ set (create, read, update, delete, list)
+ - crud helper class with standard method configurations and custom parameter support
+ - Auto-generates bound methods for declared operations with proper request/response handling
+ - Explicit method definitions override auto-generation for customization
++ SearchResourceConfig: Configuration model for search-specific settings (method, searchmethod, oncall, payload)
++ Enhanced declarative attribute system: __declattrs__ and __declconfs__ extension for specialized resources
++ Comprehensive test coverage: 24 passing tests for both SearchResource and ManagedResource functionality
++ Foundation established for declarative API client development with specialized resource types
+
 ## [0.8.0] -- *2025-06-13*
 * Complete concrete implementation suite with comprehensive test coverage
 + Concrete implementations: Client, Resource, Session, Backend, Persistence, Auth base classes

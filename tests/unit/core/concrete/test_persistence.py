@@ -64,12 +64,12 @@ class TestPersistence:
             test_data = {'headers': {'header': 'value'}}
 
             persistence.save(test_data)
-            print(f"DEBUG test: persistence.path = {persistence.path}")
+            #print(f"DEBUG test: persistence.path = {persistence.path}")
             exists = nested_path.exists()
-            print(f"DEBUG test: nested path exists: {exists}")
+            #print(f"DEBUG test: nested path exists: {exists}")
             assert exists
             loaded_data = persistence.load()
-            print(f"DEBUG test: loaded data: {loaded_data}")
+            #print(f"DEBUG test: loaded data: {loaded_data}")
             assert loaded_data == test_data
 
     def test_load_nonexistent_file(self):

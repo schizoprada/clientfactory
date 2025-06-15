@@ -71,9 +71,9 @@ class Declarative(metaclass=DeclarativeMeta):
         declared: dict = getattr(self.__class__, '_declattrs', {})
         collected: dict = {}
         mappedattrs: dict = (attrmap or {})
-        print(f"DEBUG _collectattributes: declarable = {declarable}")
-        print(f"DEBUG _collectattributes: declared = {declared}")
-        print(f"DEBUG _collectattributes: provided = {provided}")
+        #print(f"DEBUG _collectattributes: declarable = {declarable}")
+        #print(f"DEBUG _collectattributes: declared = {declared}")
+        #print(f"DEBUG _collectattributes: provided = {provided}")
 
 
         # get config defaults if available
@@ -101,11 +101,11 @@ class Declarative(metaclass=DeclarativeMeta):
     def _resolvecomponents(self, **provided: t.Any) -> dict:
         """Resolve components from declarations and constructor params."""
         declarable: set = getattr(self.__class__, '__declcomps__', set())
-        print(f"DEBUG _resolvecomponents: {self.__class__.__name__} declarable={declarable}")
-        print(f"DEBUG _resolvecomponents: provided={provided}")
+        #print(f"DEBUG _resolvecomponents: {self.__class__.__name__} declarable={declarable}")
+        #print(f"DEBUG _resolvecomponents: provided={provided}")
 
         declcomps = getattr(self.__class__, '_declcomponents', {})
-        print(f"DEBUG _resolvecomponents: raw _declcomponents={declcomps}")
+        #print(f"DEBUG _resolvecomponents: raw _declcomponents={declcomps}")
 
         # collect declarations from component hierarchy
         declared: dict = {}
@@ -139,7 +139,7 @@ class Declarative(metaclass=DeclarativeMeta):
                     resolved[name] = declaration['value'] # already instantiated
             else:
                 resolved[name] = None
-        print(f"DEBUG _resolvecomponents: final declared={declared}")
+        #print(f"DEBUG _resolvecomponents: final declared={declared}")
         return resolved
 
     @classmethod

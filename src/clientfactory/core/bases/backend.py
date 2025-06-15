@@ -41,21 +41,21 @@ class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
 
         # 3. resolve attributes
         attrs = self._collectattributes(**kwargs)
-        print(f"DEBUG Backend.__init__: collected attrs = {attrs}")
+        #print(f"DEBUG Backend.__init__: collected attrs = {attrs}")
         self._resolveattributes(attrs)
 
 
     def _resolveattributes(self, attributes: dict) -> None:
-        print(f"DEBUG Backend._resolveattributes: attributes = {attributes}")
-        print(f"DEBUG Backend._resolveattributes: self._config = {self._config}")
-        print(f"DEBUG Backend._resolveattributes: self._config.model_dump() = {self._config.model_dump()}")
+        #print(f"DEBUG Backend._resolveattributes: attributes = {attributes}")
+        #print(f"DEBUG Backend._resolveattributes: self._config = {self._config}")
+        #print(f"DEBUG Backend._resolveattributes: self._config.model_dump() = {self._config.model_dump()}")
 
         self.endpoint: str = attributes.get('endpoint', '')
         self.apiversion: str = attributes.get('apiversion', 'v1')
         self.format: str = attributes.get('format', 'json')
-        print(f"DEBUG Backend._resolveattributes: final self.endpoint = {self.endpoint}")
-        print(f"DEBUG Backend._resolveattributes: final self.apiversion = {self.apiversion}")
-        print(f"DEBUG Backend._resolveattributes: final self.format = {self.format}")
+        #print(f"DEBUG Backend._resolveattributes: final self.endpoint = {self.endpoint}")
+        #print(f"DEBUG Backend._resolveattributes: final self.apiversion = {self.apiversion}")
+        #print(f"DEBUG Backend._resolveattributes: final self.format = {self.format}")
 
 
     @abc.abstractmethod
