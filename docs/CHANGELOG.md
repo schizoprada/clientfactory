@@ -1,5 +1,22 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.2] -- *2025-06-16*
+* JWT and DPoP authentication implementations
++ JWTAuth: JWT Bearer token authentication with declarative attribute support
+- Simple token management with settoken() method
+- Automatic "Authorization: Bearer {token}" header application
+- Declarative attributes: token, username, password, key, scheme
++ DPOPAuth: DPoP (Demonstration of Proof-of-Possession) authentication
+- JWK-based cryptographic proof token generation per request
+- EC curve support (P-256, P-384, P-521) with RSA foundation laid
+- Request-specific tokens with HTM/HTU claims (method/URL binding)
+- Declarative attributes: jwk, algorithm, headerkey
+- Configurable header key (default "DPoP")
++ Dependencies: Added PyJWT and cryptography as core dependencies
++ Comprehensive test coverage: 31 passing tests across both authentication types
++ Full V3 declarative framework integration with BaseAuth inheritance
++ Ready for production JWT/DPoP authentication workflows
+
 ## [0.8.1] -- *2025-06-15*
 * Specialized Resource implementations with declarative CRUD and search functionality
 + SearchResource: Specialized resource for search operations with automatic method generation
