@@ -1,5 +1,23 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.3] -- *2025-06-16*
+* Backend implementations for Algolia and GraphQL APIs with comprehensive functionality
++ AlgoliaBackend: Complete Algolia search API integration
+- Multi-index search support with configurable result merging
+- Schematix-based parameter conversion and response processing
+- Algolia-specific authentication headers and URL construction
+- Configurable content types and parameter encoding
+- Enhanced error handling for Algolia-specific error responses
++ GraphQLBackend: Basic GraphQL API integration (enhanced features planned)
+- Standard GraphQL request formatting (query, variables, operationName)
+- Response processing with data/errors extraction
+- GraphQL-specific error handling and validation
+- Configurable error raising behavior
++ Enhanced schematix integration for consistent data transformation patterns
++ Comprehensive test coverage: 18 passing tests for both backend implementations
++ Foundation established for protocol-specific API backends within V3 declarative framework
++ Note: Advanced GraphQL features (variable validation, query parsing, nested mapping) planned for future release
+
 ## [0.8.2] -- *2025-06-16*
 * JWT and DPoP authentication implementations
 + JWTAuth: JWT Bearer token authentication with declarative attribute support
