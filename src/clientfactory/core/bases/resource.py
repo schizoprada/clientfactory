@@ -165,6 +165,23 @@ class BaseResource(abc.ABC, Declarative):
         except KeyError as e:
             raise ValueError(f"Missing path parameter: {e}")
 
+    def _resolvepathargs(self, path: t.Optional[str] = None, *args, **kwargs) -> dict:
+        """Extract positional args into kwargs based on path parameter names."""
+        if (not path) or (not args):
+            return kwargs
+
+        import string
+        formatter = string.Formatter()
+        pathparams = [pname for _, pname, _, _ in formatter.parse(path) if pname]
+
+        result = kwargs.copy()
+
+        for i, arg in enumerate(args):
+            if (i < len(pathparams)):
+                result[pathparams[i]] = arg
+
+        return result
+
     def _createboundmethod(self, method: t.Callable) -> t.Callable:
         methodconfig = getattr(method, '_methodconfig')
 
@@ -172,6 +189,9 @@ class BaseResource(abc.ABC, Declarative):
             # preprocess request data if configured
             if methodconfig.preprocess:
                 kwargs = methodconfig.preprocess(kwargs)
+
+            # extract args into kwargs based on path parameter order
+            kwargs = self._resolvepathargs(methodconfig.path, *args, **kwargs)
 
             # substitute path params
             path, consumed = self._substitutepath(methodconfig.path, **(kwargs or {}))

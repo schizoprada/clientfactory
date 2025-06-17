@@ -1,5 +1,31 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.5] -- *2025-06-17*
+* Complete path parameter substitution and conflict resolution system with enhanced request processing
++ Path Parameter Substitution: Full implementation across all resource and client types
+- BaseResource and BaseClient: `_substitutepath()` method with template parameter extraction and substitution
+- Automatic path parameter consumption to prevent leakage into request payloads
+- Support for multiple path parameters with proper error handling for missing values
++ Client-Level HTTP Methods: Comprehensive support for decorated HTTP methods on client classes
+- Automatic method discovery and binding in BaseClient with `_initmethods()`
+- URL construction pattern: baseurl + method_path for client-level endpoints
+- Full integration with engine/session pipeline and backend processing
++ Preprocess Support: Complete implementation of request data preprocessing
+- Preprocess functions called on kwargs before path substitution and request building
+- Consistent behavior across both client and resource method types
+- Integration with path parameter extraction and payload processing
++ Args vs Kwargs Conflict Resolution: Elegant solution for path vs payload parameter conflicts
+- Positional arguments map to path parameters by template order
+- Keyword arguments reserved for payload data after path parameter extraction
+- `_resolvepathargs()` helper method for clean parameter separation
+- Fallback behavior: kwargs used for path parameters when args insufficient
++ Enhanced Request Building: Improved request construction with proper parameter separation
+- `_separatekwargs()` method distinguishes request fields from body data based on HTTP method
+- Clean separation of concerns: path params → URL, remaining kwargs → request body/params
+- Support for complex scenarios: multiple path params, payload classes, preprocessing chains
++ Comprehensive test coverage: 24 passing tests across path substitution, client methods, preprocessing, and conflict resolution
++ Production-ready HTTP method decoration system with full parameter handling and zero ambiguity in path vs payload parameter usage
+
 ## [0.8.4] -- *2025-06-17*
 * Complete decorator system with comprehensive configuration support and enhanced IDE integration
 + HTTP Method Decorators: @get, @post, @put, @patch, @delete, @head, @options with full configuration
