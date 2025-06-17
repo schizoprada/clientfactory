@@ -129,6 +129,85 @@ class BaseResource(abc.ABC, Declarative):
         ...
 
     ## concretes ##
+    def _separatekwargs(self, method: HTTPMethod, **kwargs) -> tuple[dict, dict]:
+        """Separate kwargs into request fields and body data based on HTTP method."""
+        fields = {}
+        body = {}
+
+        fieldnames = {
+            'headers', 'params', 'cookies', 'timeout',
+            'allowredirects', 'verifyssl', 'data', 'files'
+        }
+        bodymethods = {'POST', 'PUT', 'PATCH'}
+
+        if method.value in bodymethods:
+            for k,v in kwargs.items():
+                if k in fieldnames:
+                    fields[k] = v
+                else:
+                    body[k] = v
+        else:
+            fields = kwargs
+
+        return (fields, body)
+
+    def _substitutepath(self, path: t.Optional[str] = None, **kwargs) -> tuple[t.Optional[str], t.List[str]]:
+        """Substitute path parameters using string formatting."""
+        if not path:
+            return path, []
+
+        import string
+        formatter = string.Formatter()
+
+        try:
+            consumed = [fname for _, fname, _, _ in formatter.parse(path) if fname]
+            return path.format(**kwargs), consumed
+        except KeyError as e:
+            raise ValueError(f"Missing path parameter: {e}")
+
+    def _createboundmethod(self, method: t.Callable) -> t.Callable:
+        methodconfig = getattr(method, '_methodconfig')
+
+        def bound(*args, **kwargs):
+            # preprocess request data if configured
+            if methodconfig.preprocess:
+                kwargs = methodconfig.preprocess(kwargs)
+
+            # substitute path params
+            path, consumed = self._substitutepath(methodconfig.path, **(kwargs or {}))
+
+            # remove consumed parameters
+            for kwarg in consumed:
+                kwargs.pop(kwarg, None)
+
+            # build request
+            request = self._buildrequest(
+               method=methodconfig.method,
+               path=path,
+               **(kwargs or {})
+            )
+
+            if self._backend:
+                request = self._backend.formatrequest(request, kwargs)
+
+            response = self._session.send(request)
+
+            if self._backend:
+                processed = self._backend.processresponse(response)
+            else:
+                processed = response
+
+            if methodconfig.postprocess:
+                processed = methodconfig.postprocess(processed)
+
+            return processed
+
+        bound.__name__ = method.__name__
+        bound.__doc__ = method.__doc__
+        setattr(bound, '_methodconfig', methodconfig)
+
+        return bound
+
     def addmethod(self, method: t.Callable, name: t.Optional[str] = None) -> None:
         """Add method to resource."""
         self._registermethod(method, name)
@@ -140,7 +219,7 @@ class BaseResource(abc.ABC, Declarative):
             if hasattr(self, name):
                 delattr(self, name)
 
-    def getmethod(self, name: str) -> t.Optional[t.Callable]:
+    def getmethod(self, name: str) -> t.Optional[t.Callable]: # type: ignore
         """Get method by name."""
         return self._methods.get(name)
 

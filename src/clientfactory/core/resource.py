@@ -95,46 +95,19 @@ class Resource(BaseResource):
             parts.append(methodpath)
 
         url = '/'.join(parts)
+
+        fields, body = self._separatekwargs(method, **kwargs)
+
+        if body:
+            return RequestModel(
+                method=method,
+                url=url,
+                json=body,
+                **fields
+            )
+
         return RequestModel(
             method=method,
             url=url,
-            **kwargs
+            **fields
         )
-
-    def _createboundmethod(self, method: t.Callable) -> t.Callable:
-        methodconfig = getattr(method, '_methodconfig')
-
-        def bound(*args, **kwargs):
-            #print(f"DEBUG bound: starting")
-            request = self._buildrequest(
-                method=methodconfig.method,
-                path=methodconfig.path,
-                **kwargs
-            )
-            #print(f"DEBUG bound: built request = {request}")
-
-            if self._backend:
-                request = self._backend.formatrequest(request, kwargs)
-                #print(f"DEBUG bound: formatted request = {request}")
-
-            response = self._session.send(request)
-            #print(f"DEBUG bound: got response = {response}")
-
-            if self._backend:
-                processed = self._backend.processresponse(response)
-                #print(f"DEBUG bound: processed response = {processed}")
-            else:
-                processed = response
-
-            if methodconfig.postprocess:
-                processed = methodconfig.postprocess(processed)
-                #print(f"DEBUG bound: postprocessed response = {processed}")
-
-            #print(f"DEBUG bound: returning = {processed}")
-            return processed
-
-        bound.__name__ = method.__name__
-        bound.__doc__ = method.__doc__
-        setattr(bound, '_methodconfig', methodconfig)
-
-        return bound

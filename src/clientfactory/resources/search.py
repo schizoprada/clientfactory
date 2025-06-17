@@ -116,9 +116,12 @@ class SearchResource(Resource):
             else:
                 validated = kwargs
 
+            # substitute path parameters
+            path = self._substitutepath(self.path, **kwargs)
+
             # build request
             reqkwargs = self._preparerequestdata(validated)
-            request = self._buildrequest(method=self.method, **reqkwargs)
+            request = self._buildrequest(method=self.method, path=path, **reqkwargs)
 
             # send thru session
             response = self._session.send(request)
