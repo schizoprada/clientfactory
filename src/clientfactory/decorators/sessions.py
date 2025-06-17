@@ -9,6 +9,7 @@ import typing as t, functools as fn
 
 from clientfactory.core.bases import BaseSession
 from clientfactory.core.session import Session
+from clientfactory.decorators._utils import annotate
 
 ST = t.TypeVar('ST', bound=BaseSession)
 
@@ -32,7 +33,16 @@ def _transformtosession(
     )
     new.__module__ = target.__module__
     new.__qualname__ = target.__qualname__
+    annotate(new, variant)
     return new # type: ignore
+
+
+## overloads ##
+@t.overload
+def basesession(cls: t.Type, /) -> t.Type[BaseSession]: ...
+
+@t.overload
+def basesession(cls: None = None, **kwargs: t.Any) -> t.Callable[[t.Type], t.Type[BaseSession]]: ...
 
 def basesession(
     cls: t.Optional[t.Type] = None,
@@ -45,6 +55,22 @@ def basesession(
         return decorator(cls)
     return decorator
 
+
+## overloads ##
+@t.overload
+def session(cls: t.Type, /) -> t.Type[Session]: ...
+
+@t.overload
+def session(
+    cls: None = None,
+    *,
+    auth: t.Optional[t.Any] = None,
+    persistence: t.Optional[t.Any] = None,
+    headers: t.Optional[t.Dict[str, str]] = None,
+    cookies: t.Optional[t.Dict[str, str]] = None,
+    useragent: t.Optional[str] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[Session]]: ...
 
 def session(
     cls: t.Optional[t.Type] = None,

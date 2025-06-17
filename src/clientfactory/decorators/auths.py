@@ -10,6 +10,7 @@ import typing as t, functools as fn
 from clientfactory.core.bases import BaseAuth
 from clientfactory.auths.jwt import JWTAuth
 from clientfactory.auths.dpop import DPOPAuth
+from clientfactory.decorators._utils import annotate
 
 AT = t.TypeVar('AT', bound=BaseAuth)
 
@@ -33,7 +34,18 @@ def _transformtoauth(
     )
     new.__module__ = target.__module__
     new.__qualname__ = target.__qualname__
-    return new
+
+    annotate(new, variant)
+
+    return new # type: ignore
+
+
+
+@t.overload
+def baseauth(cls: t.Type, /) -> t.Type[BaseAuth]: ...
+
+@t.overload
+def baseauth(cls: None = None, **kwargs: t.Any) -> t.Callable[[t.Type], t.Type[BaseAuth]]: ...
 
 def baseauth(
     cls: t.Optional[t.Type] = None,
@@ -46,6 +58,18 @@ def baseauth(
         return decorator(cls)
     return decorator
 
+
+## overloads ##
+@t.overload
+def jwt(cls: t.Type, /) -> t.Type[JWTAuth]: ...
+
+@t.overload
+def jwt(
+    cls: None = None,
+    *,
+    token: t.Optional[str] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[JWTAuth]]: ...
 
 def jwt(
     cls: t.Optional[t.Type] = None,
@@ -64,6 +88,19 @@ def jwt(
         return decorator(cls)
     return decorator
 
+
+## overloads ##
+@t.overload
+def dpop(cls: t.Type) -> t.Type[DPOPAuth]: ...
+
+@t.overload
+def dpop(
+    cls: None = None,
+    *,
+    algorithm: str  = "ES256",
+    headerkey: str = "DPoP",
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[DPOPAuth]]: ...
 
 def dpop(
     cls: t.Optional[t.Type] = None,

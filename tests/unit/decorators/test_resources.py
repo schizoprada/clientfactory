@@ -160,8 +160,8 @@ class TestResourceDecorators:
        assert hasattr(TestResource, 'custom_method')
 
        # Test instantiation works
-       resource = TestResource(client=Mock(), config=TestResource._resourceconfig)
-       assert resource.custom_method() == "custom"
+       instance = TestResource(client=Mock(), config=TestResource._resourceconfig)
+       assert instance.custom_method() == "custom"
 
    def test_preserves_module_and_qualname(self):
        """Test that decorators preserve module and qualname."""
@@ -180,15 +180,15 @@ class TestResourceDecorators:
                return "custom get"
 
        # Should inherit from Resource
-       resource = CustomResource(client=Mock(), config=CustomResource._resourceconfig)
-       assert isinstance(resource, Resource)
+       instance = CustomResource(client=Mock(), config=CustomResource._resourceconfig)
+       assert isinstance(instance, Resource)
 
        # Should have custom method
-       assert resource.custom_get() == "custom get"
+       assert instance.custom_get() == "custom get"
 
        # Should have Resource methods
-       assert hasattr(resource, 'getconfig')
-       assert hasattr(resource, 'getclient')
+       assert hasattr(instance, 'getconfig')
+       assert hasattr(instance, 'getclient')
 
    def test_searchable_with_config_object(self):
        """Test searchable decorator with SearchResourceConfig object."""

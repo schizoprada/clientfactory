@@ -10,6 +10,7 @@ import typing as t
 from clientfactory.core import Resource
 from clientfactory.resources import SearchResource, ManagedResource
 from clientfactory.core.models import ResourceConfig, SearchResourceConfig
+from clientfactory.decorators._utils import annotate
 
 def _transformtoresource(
     target: t.Type,
@@ -56,9 +57,21 @@ def _transformtoresource(
     )
     new.__module__ = target.__module__
     new.__qualname__ = target.__qualname__
+    annotate(new, variant)
     return new
 
 
+## overloads ##
+@t.overload
+def resource(cls: t.Type, /) -> t.Type[Resource]: ...
+
+@t.overload
+def resource(
+    *,
+    config: t.Optional[ResourceConfig] = None,
+    name: t.Optional[str] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[Resource]]: ...
 
 def resource(
     cls: t.Optional[t.Type] = None,
@@ -102,6 +115,18 @@ def resource(
         return decorator(cls)
     return decorator
 
+
+## overloads ##
+@t.overload
+def searchable(cls: t.Type, /) -> t.Type[SearchResource]: ...
+
+@t.overload
+def searchable(
+    *,
+    config: t.Optional[SearchResourceConfig] = None,
+    name: t.Optional[str] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[SearchResource]]: ...
 
 def searchable(
    cls: t.Optional[t.Type] = None,
@@ -167,6 +192,18 @@ def searchable(
     return decorator
 
 
+## overloads ##
+@t.overload
+def manageable(cls: t.Type, /) -> t.Type[ManagedResource]: ...
+
+@t.overload
+def manageable(
+    *,
+    config: t.Optional[ResourceConfig] = None,
+    crud: t.Optional[t.Set[str]] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[ManagedResource]]: ...
+
 def manageable(
    cls: t.Optional[t.Type] = None,
    *,
@@ -198,9 +235,7 @@ def manageable(
         class Users: pass
     """
     def decorator(target: t.Type) -> t.Type[ManagedResource]:
-        if crud is not None:
-            target.__crud__ = crud
-        return _transformtoresource(
+        transformed = _transformtoresource(
             target=target,
             variant=ManagedResource,
             config=config,
@@ -208,6 +243,9 @@ def manageable(
             path=path,
             **kwargs
         )
+        if crud is not None:
+            transformed.__crud__ = crud
+        return transformed
     if cls is not None:
         return decorator(cls)
     return decorator

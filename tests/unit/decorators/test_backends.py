@@ -139,8 +139,11 @@ class TestBackendDecorators:
        """Test that the transformed class inherits correctly."""
        @basebackend
        class CustomBackend:
-           def custom_process(self, response):
-               return "custom processed"
+            def custom_process(self, response):
+                return "custom processed"
+
+            def _formatrequest(self, request, data): return request
+            def _processresponse(self, response): return response
 
        # Should inherit from BaseBackend
        backend = CustomBackend()
@@ -154,4 +157,31 @@ class TestBackendDecorators:
        assert hasattr(backend, 'handleerror')
 
    def test_algolia_partial_config(self):
-       """Test Algolia decorator
+       """Test Algolia decorator with partial configuration."""
+       @algolia(appid="test-app", apikey="test-key")
+       class PartialConfig:
+           pass
+
+       assert issubclass(PartialConfig, AlgoliaBackend)
+       assert PartialConfig.appid == "test-app"
+       assert PartialConfig.apikey == "test-key"
+       # index and indices should not be set
+       assert not hasattr(PartialConfig, 'index')
+       assert not hasattr(PartialConfig, 'indices')
+
+   def test_multiple_decorators_different_classes(self):
+       """Test multiple backend decorators on different classes."""
+       @algolia(appid="algolia-app")
+       class AlgoliaBackendClass:
+           algolia_specific = "algolia"
+
+       @graphql(endpoint="/custom/graphql")
+       class GraphQLBackendClass:
+           graphql_specific = "graphql"
+
+       assert issubclass(AlgoliaBackendClass, AlgoliaBackend)
+       assert issubclass(GraphQLBackendClass, GQLBackend)
+       assert AlgoliaBackendClass.appid == "algolia-app"
+       assert AlgoliaBackendClass.algolia_specific == "algolia"
+       assert GraphQLBackendClass.endpoint == "/custom/graphql"
+       assert GraphQLBackendClass.graphql_specific == "graphql"

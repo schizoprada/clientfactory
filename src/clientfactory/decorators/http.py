@@ -95,7 +95,7 @@ def _buildmethodconfig(
         name=func.__name__,
         method=method,
         path=path,
-        description=kwargs.get('description', func.__doc__ or ""),
+        description=kwargs.get('description', func.__doc__ or "") or (func.__doc__ or ""),
         **{k:v for k,v in kwargs.items() if k!='description' and v is not None}
     )
 
@@ -291,14 +291,21 @@ Example:
    def get_user_options(self): pass
 """
 
+def _createdecorator(method: HTTPMethod) -> t.Callable:
+    def decorator(funcorpath: t.Any = None, **kwargs):
+        if callable(funcorpath):
+            # no parentheses
+            return httpmethod(method, None)(funcorpath)
+        return httpmethod(method, funcorpath, **kwargs)
+    return decorator
 
-get = fn.partial(httpmethod, HTTPMethod.GET)
-post = fn.partial(httpmethod, HTTPMethod.POST)
-put = fn.partial(httpmethod, HTTPMethod.PUT)
-patch = fn.partial(httpmethod, HTTPMethod.PATCH)
-delete = fn.partial(httpmethod, HTTPMethod.DELETE)
-head = fn.partial(httpmethod, HTTPMethod.HEAD)
-options = fn.partial(httpmethod, HTTPMethod.OPTIONS)
+get = _createdecorator(HTTPMethod.GET)
+post = _createdecorator(HTTPMethod.POST)
+put = _createdecorator(HTTPMethod.PUT)
+patch = _createdecorator(HTTPMethod.PATCH)
+delete = _createdecorator(HTTPMethod.DELETE)
+head = _createdecorator(HTTPMethod.HEAD)
+options = _createdecorator(HTTPMethod.OPTIONS)
 
 get.__doc__ = DOCS.GET
 post.__doc__ = DOCS.POST

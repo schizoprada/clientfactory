@@ -10,6 +10,7 @@ import typing as t, functools as fn
 from clientfactory.core.bases import BaseBackend
 from clientfactory.backends.algolia import AlgoliaBackend
 from clientfactory.backends.graphql import GQLBackend
+from clientfactory.decorators._utils import annotate
 
 BT = t.TypeVar('BT', bound=BaseBackend)
 
@@ -34,7 +35,19 @@ def _transformtobackend(
     )
     new.__module__ = target.__module__
     new.__qualname__ = target.__qualname__
+    annotate(new, variant)
     return new # type: ignore
+
+
+## overloads ##
+@t.overload
+def basebackend(cls: t.Type, /) -> t.Type[BaseBackend]: ...
+
+@t.overload
+def basebackend(
+    cls: None = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[BaseBackend]]:...
 
 def basebackend(
     cls: t.Optional[t.Type] = None,
@@ -46,6 +59,20 @@ def basebackend(
     if cls is not None:
         return decorator(cls)
     return decorator
+
+
+
+## overloads ##
+@t.overload
+def algolia(cls: t.Type, /) -> t.Type[AlgoliaBackend]: ...
+
+@t.overload
+def algolia(
+    *,
+    appid: t.Optional[str] = None,
+    apikey: t.Optional[str] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[AlgoliaBackend]]: ...
 
 def algolia(
     cls: t.Optional[t.Type] = None,
@@ -68,8 +95,20 @@ def algolia(
     return decorator
 
 
+## overloads ##
+@t.overload
+def graphql(cls: t.Type, /) -> t.Type[GQLBackend]: ...
+
+@t.overload
 def graphql(
-    cls: t.Optional[t.Type],
+    *,
+    endpoint: str = "/graphql",
+    introspection: bool = True,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[GQLBackend]]: ...
+
+def graphql(
+    cls: t.Optional[t.Type] = None,
     *,
     endpoint: str = "/graphql",
     introspection: bool = True,

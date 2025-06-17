@@ -143,8 +143,14 @@ class TestAuthDecorators:
        """Test that the transformed class inherits correctly."""
        @baseauth
        class CustomAuth:
-           def custom_authenticate(self):
-               return "custom auth"
+            def custom_authenticate(self):
+                return "custom auth"
+
+            def _authenticate(self):
+                return True
+
+            def _applyauth(self, request):
+                return request
 
        # Should inherit from BaseAuth
        auth = CustomAuth()
