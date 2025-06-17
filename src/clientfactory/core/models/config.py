@@ -37,6 +37,8 @@ class PayloadConfig(PydModel):
     ...
 
 class MethodConfig(PydModel):
+    #! TODO:
+    # Add: headers, cookies, timeout, retries
     """Configuration for a resource method"""
     name: str
     method: HTTPMethod
