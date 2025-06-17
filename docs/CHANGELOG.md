@@ -1,5 +1,28 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.4] -- *2025-06-17*
+* Complete decorator system with comprehensive configuration support and enhanced IDE integration
++ HTTP Method Decorators: @get, @post, @put, @patch, @delete, @head, @options with full configuration
+- Enhanced MethodConfig integration with payload validation, pre/post processing hooks
+- Automatic docstring generation based on payload parameters and method configuration
+- Built-in validation preventing invalid patterns (GET with payload, etc.)
++ Resource Decorators: @resource, @searchable, @manageable for specialized resource creation
+- Transform user classes into Resource, SearchResource, or ManagedResource components
+- Automatic CRUD method generation with @manageable(crud={'create', 'read', 'update'})
+- SearchResource payload integration with configurable search methods and callable instances
++ Auth Decorators: @baseauth, @jwt, @dpop for authentication component creation
+- Transform user classes into authentication providers with declarative attributes
+- JWT and DPoP authentication with configurable tokens, algorithms, and header keys
++ Session Decorators: @basesession, @session for session component creation
+- Transform user classes into session managers with component and attribute configuration
++ Backend Decorators: @basebackend, @algolia, @graphql for backend component creation
+- Transform user classes into specialized API backends with protocol-specific configuration
++ Enhanced IDE Support: Improved type annotations system with auto-detection of declarative components
+- annotate() function with component detection and __annotations__ management
+- Better IDE attribute recognition for declarative patterns and transformed classes
++ Comprehensive test coverage: 62 passing tests across all decorator types and configurations
++ Production-ready decorator ecosystem for rapid ClientFactory component development with minimal boilerplate
+
 ## [0.8.3] -- *2025-06-16*
 * Backend implementations for Algolia and GraphQL APIs with comprehensive functionality
 + AlgoliaBackend: Complete Algolia search API integration
