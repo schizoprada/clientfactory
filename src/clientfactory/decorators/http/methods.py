@@ -1,4 +1,4 @@
-# ~/clientfactory/src/clientfactory/decorators/http.py
+# ~/clientfactory/src/clientfactory/decorators/http/methods.py
 """
 HTTP Method Decorators
 ---------------------

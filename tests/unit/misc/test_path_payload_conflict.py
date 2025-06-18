@@ -25,7 +25,7 @@ class TestPathPayloadConflicts:
             baseurl = "https://api.example.com"
 
             @post("users/{id}")
-            def update_user(self, id, **kwargs): pass
+            def update_user(self, id, /, **kwargs): pass
 
         client = TestClient(engine=self.mock_engine)
         client._engine._session.send.return_value = Mock()

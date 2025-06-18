@@ -1,5 +1,31 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.6] -- *2025-06-18*
+* Complete declarative decorator ecosystem with HTTP contexts, configurations, persistence, engines, and data components
++ HTTP Context Decorators: @headers and @cookies for declarative request context configuration
+- Headers and Cookies classes that behave as dict-compatible components with auto-normalization
+- Support for class-based definitions, tuple formats, dict merging, and inheritance patterns
+- Seamless integration with existing RequestModel pipeline without requiring refactoring
++ Configuration Decorators: @configs.* namespace for declarative configuration object creation
+- Transform user classes into AuthConfig, EngineConfig, SessionConfig, ResourceConfig, etc.
+- Automatic attribute extraction and config instantiation with zero boilerplate
+- Support for all configuration types: auth, backend, client, engine, payload, persistence, resource, session
++ Persistence Decorators: @persistence with format variants for declarative state management
+- Base @persistence decorator for general persistence configuration
+- Format-specific variants: @persistence.json (implemented), @persistence.pkl (placeholder)
+- Integration with existing BasePersistence and Persistence classes
++ Engine Decorators: @engine with library variants for declarative engine selection
+- Base @engine decorator defaulting to RequestsEngine for maximum compatibility
+- Library-specific variants: @engine.requests (implemented), @engine.httpx (placeholder)
+- Dynamic engine mapping system extensible for future HTTP library integrations
++ Data Decorators: @param and @payload for declarative request data component creation
+- @param decorator transforms classes into ClientFactory Param instances with schematix integration
+- @payload decorator creates Payload classes from field definitions with intelligent class naming
+- Support for mixed field types: existing Param instances, dict definitions, tuple configurations, simple defaults
+- Full compatibility with schematix Field constructs while maintaining ClientFactory-specific functionality
++ Comprehensive test coverage: 45+ passing tests across all decorator types and edge cases
++ Production-ready declarative framework completing the ClientFactory decorator ecosystem with zero breaking changes to existing components
+
 ## [0.8.5] -- *2025-06-17*
 * Complete path parameter substitution and conflict resolution system with enhanced request processing
 + Path Parameter Substitution: Full implementation across all resource and client types

@@ -284,8 +284,6 @@ class Param(sex.Field):
 
     def __set_name__(self, owner, name):
         """Called when Param is assigned to a class attribute."""
-        #print(f"DEBUG: __set_name__ called with owner={owner}, name={name}")
-        #print(f"DEBUG: Before - self.name={self.name}, self.target={self.target}")
         # This is called by the metaclass with the actual attribute name
         if self.name is None:
             self.name = name
@@ -293,8 +291,6 @@ class Param(sex.Field):
         # Now set target default if not specified
         if self.target is None:
             self.target = self.name
-
-        #print(f"DEBUG: After - self.name={self.name}, self.target={self.target}")
 
         # Call parent if it exists
         if hasattr(super(), '__set_name__'):
@@ -314,29 +310,18 @@ class BoundPayload:
         """Serialize using bound schema with ClientFactory target-key behavior."""
         result = {}
 
-        #print(f"DEBUG BoundPayload: data = {data}")
-        #print(f"DEBUG BoundPayload: _boundfields = {getattr(self.boundto, '_boundfields', 'NOT_FOUND')}")
-
         # Use the bound fields, but apply ClientFactory target-key logic
         for fieldname, boundfield in self.boundto._boundfields.items():
-            #print(f"DEBUG BoundPayload: Processing field '{fieldname}'")
-            #print(f"DEBUG BoundPayload: boundfield = {boundfield}")
-            #print(f"DEBUG BoundPayload: boundfield.target = {getattr(boundfield, 'target', 'NO_TARGET')}")
-
             try:
                 value = boundfield.extract(data)
-                #print(f"DEBUG BoundPayload: extracted value = {value}")
 
                 # Use target as key, just like Payload.transform()
                 key = getattr(boundfield, 'target', None) or fieldname
-                #print(f"DEBUG BoundPayload: using key = {key}")
 
                 result[key] = value
             except Exception as e:
-                #print(f"DEBUG BoundPayload: Exception on field '{fieldname}': {e}")
                 raise ValueError(f"Bound transform failed on field '{fieldname}': {e}")
 
-        #print(f"DEBUG BoundPayload: final result = {result}")
         return result
 
 class Payload(sex.Schema): #! PayloadProtocol removed
