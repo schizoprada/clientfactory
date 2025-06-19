@@ -14,6 +14,8 @@ from clientfactory.core.models import (
     DeclarativeType, DECLARATIVE, DeclarableConfig
 )
 
+from clientfactory.logs import log
+
 class Declarative(metaclass=DeclarativeMeta):
     """
     Base class for declarative components.
@@ -100,12 +102,15 @@ class Declarative(metaclass=DeclarativeMeta):
 
     def _resolvecomponents(self, **provided: t.Any) -> dict:
         """Resolve components from declarations and constructor params."""
+        from clientfactory.logs import log
+
         declarable: set = getattr(self.__class__, '__declcomps__', set())
-        #print(f"DEBUG _resolvecomponents: {self.__class__.__name__} declarable={declarable}")
-        #print(f"DEBUG _resolvecomponents: provided={provided}")
+        log.debug(f"Declarative._resolvecomponents: declarable={declarable}")
+        log.debug(f"Declarative._resolvecomponents: provided={provided}")
+        log.debug(f"Declarative._resolvecomponents: class={self.__class__.__name__}")
 
         declcomps = getattr(self.__class__, '_declcomponents', {})
-        #print(f"DEBUG _resolvecomponents: raw _declcomponents={declcomps}")
+        log.debug(f"Declarative._resolvecomponents: _declcomponents={declcomps}")
 
         # collect declarations from component hierarchy
         declared: dict = {}
@@ -114,32 +119,43 @@ class Declarative(metaclass=DeclarativeMeta):
         while current:
             traversed.append(current.__class__.__name__)
             currentdeclared = getattr(current.__class__, '_declcomponents', {})
+            log.debug(f"Declarative._resolvecomponents: {current.__class__.__name__} _declcomponents={currentdeclared}")
             for name, decl in currentdeclared.items():
                 if name not in declared:
                     declared[name] = decl
-
+                    log.debug(f"Declarative._resolvecomponents: added {name} = {decl}")
 
             # move up hierarchy
             old = current
             current = getattr(current, '_parent', None) or getattr(current, '_client', None)
+            log.debug(f"Declarative._resolvecomponents: moved from {old.__class__.__name__} to {current.__class__.__name__ if current else None}")
 
             if current is old:
                 break
 
+        log.debug(f"Declarative._resolvecomponents: traversed={traversed}")
+        log.debug(f"Declarative._resolvecomponents: final declared={declared}")
 
         resolved: dict = {}
         for name in declarable:
+            log.debug(f"Declarative._resolvecomponents: resolving {name}")
             if (name in provided) and (provided[name] is not None):
                 resolved[name] = provided[name]
+                log.debug(f"Declarative._resolvecomponents: {name} from provided = {resolved[name]}")
             elif (name in declared):
                 declaration = declared[name]
+                log.debug(f"Declarative._resolvecomponents: {name} from declared = {declaration}")
                 if (declaration['type'] == 'class'):
                     resolved[name] = declaration['value']() # needs insantiation
+                    log.debug(f"Declarative._resolvecomponents: instantiated {name} = {resolved[name]}")
                 else:
                     resolved[name] = declaration['value'] # already instantiated
+                    log.debug(f"Declarative._resolvecomponents: used instance {name} = {resolved[name]}")
             else:
                 resolved[name] = None
-        #print(f"DEBUG _resolvecomponents: final declared={declared}")
+                log.debug(f"Declarative._resolvecomponents: {name} = None (not found)")
+
+        log.debug(f"Declarative._resolvecomponents: final resolved={resolved}")
         return resolved
 
     @classmethod

@@ -24,7 +24,7 @@ def _transformtobackend(
     classdict = {
         a: getattr(target, a)
         for a in dir(target)
-        if not a.startswith('__')
+        if not a.startswith('__') or (a in [f'__{comp}__' for comp in variant.__declcomps__])
     }
     classdict.update(kwargs)
 

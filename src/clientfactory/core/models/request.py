@@ -242,7 +242,7 @@ class ResponseModel(PydModel):
 
     ## class methods ##
     @classmethod
-    def FromRequests(cls, response: 'rq.Response') -> ResponseModel:
+    def FromRequests(cls, response: 'rq.Response', request: t.Optional[RequestModel] = None) -> ResponseModel:
         """Create a ResponseModel from requests.Response"""
         return cls(
             statuscode=response.status_code,
@@ -250,7 +250,8 @@ class ResponseModel(PydModel):
             content=response.content,
             url=response.url,
             cookies=dict(response.cookies),
-            elapsedtime=response.elapsed.total_seconds()
+            elapsedtime=response.elapsed.total_seconds(),
+            request=request
         )
 
 class Param(sex.Field):

@@ -11,6 +11,7 @@ from clientfactory.core import Resource
 from clientfactory.resources import SearchResource, ManagedResource
 from clientfactory.core.models import ResourceConfig, SearchResourceConfig
 from clientfactory.decorators._utils import annotate
+from clientfactory.logs import log
 
 def _transformtoresource(
     target: t.Type,
@@ -22,39 +23,37 @@ def _transformtoresource(
 ) -> t.Type:
     """
     Transform a target class into the specified resource type.
-
-    This creates a new class that inherits from the (resource) variant while
-    preserving all attributes and methods from the target.
     """
+    # collect attributes from target first
+    classdict = {
+        attrname: getattr(target, attrname)
+        for attrname in dir(target)
+        if (not attrname.startswith('__') or
+            attrname in ('__doc__', '__module__', '__qualname__', '__annotations__') or
+            (attrname in [f'__{comp}__' for comp in variant.__declcomps__]))
+    }
+
     # build config if not provided
     if config is None:
+        # Merge decorator params with class attributes, decorator params take precedence
         confkwargs = {
             k:v for k,v in {
-                'name': (name or target.__name__.lower()),
-                'path': path or (name or target.__name__.lower()),
+                'name': (name or classdict.get('name') or target.__name__.lower()),
+                'path': (path or classdict.get('path') or (name or target.__name__.lower())),
+                'payload': kwargs.get('payload') or classdict.get('payload'),
+                'method': kwargs.get('method') or classdict.get('method'),
                 **kwargs
             }.items() if v is not None
         }
 
-        #! NEED TO IMPLEMENT CONFIG-TYPE DECLARATION
         if variant == SearchResource:
             config = SearchResourceConfig(**confkwargs)
         else:
             config = ResourceConfig(**confkwargs)
 
-    # collect attributes from target
-    classdict = {}
-    for attrname in dir(target):
-        if not attrname.startswith('__') or attrname in ('__doc__', '__module__', '__qualname__', '__annotations__'):
-            classdict[attrname] = getattr(target, attrname)
+    classdict['_resourceconfig'] = config
 
-    classdict['_resourceconfig'] = config # i thought we werent using this shit anymore
-
-    new = type(
-        target.__name__,
-        (variant,),
-        classdict
-    )
+    new = type(target.__name__, (variant,), classdict)
     new.__module__ = target.__module__
     new.__qualname__ = target.__qualname__
     annotate(new, variant)
@@ -165,6 +164,9 @@ def searchable(
         class UserSearch: pass
     """
     def decorator(target: t.Type) -> t.Type[SearchResource]:
+        #log.info(f"@searchable: target={target.__name__}")
+        #log.info(f"@searchable: method param = {method}")
+        """
         conf = config # type: ignore  #! possible unbound
         if conf is None:
             confkwargs = {
@@ -178,12 +180,15 @@ def searchable(
                     **kwargs
                 }.items() if v is not None
             }
+            #log.info(f"@searchable: confkwargs={confkwargs}")
             conf = SearchResourceConfig(**confkwargs)
+            #log.info(f"@searchable: conf={conf}")
+        """ #! let _transformtoresource handle it
 
         return _transformtoresource(
             target=target,
             variant=SearchResource,
-            config=conf,
+            config=config,
             **kwargs
         )
 

@@ -40,9 +40,12 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         self._config: EngineConfig = self._resolveconfig(EngineConfig, config, **kwargs)
 
         # 3. resolve session after config (needs _config)
-        self._session: BaseSession = (components['session'] or self._setupsession(kwargs.get('sessionconfig')))
+        self._session: BaseSession = components['session']
 
-        # 4. resolve attributes
+        # 4. set up session
+        self._session = self._setupsession(kwargs.get('sessionconfig'))
+
+        # 5. resolve attributes
         attrs = self._collectattributes(**kwargs)
         self._resolveattributes(attrs)
 
@@ -66,6 +69,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         method: HTTPMethod,
         url: str,
         usesession: bool,
+        noexec: bool = False,
         **kwargs: t.Any
     ) -> ResponseModel:
         """
@@ -129,6 +133,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
     def send(
         self,
         request: RequestModel,
+        noexec: bool = False,
         configoverride: bool = False,
         usesession: bool = True, # should execute request with session
     ) -> ResponseModel:
@@ -141,32 +146,46 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         return self._makerequest(request.method, request.url, usesession, **kwargs)
 
     ## convenience methods ##
-    def get(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def get(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make a GET request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.GET, url=url, **kwargs)
         return self.request(HTTPMethod.GET, url, **kwargs)
 
-    def post(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def post(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make a POST request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.POST, url=url, **kwargs)
         return self.request(HTTPMethod.POST, url, **kwargs)
 
-    def put(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def put(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make a PUT request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.PUT, url=url, **kwargs)
         return self.request(HTTPMethod.PUT, url, **kwargs)
 
-    def patch(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def patch(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make a PATCH request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.PATCH, url=url, **kwargs)
         return self.request(HTTPMethod.PATCH, url, **kwargs)
 
-    def delete(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def delete(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make a DELETE request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.DELETE, url=url, **kwargs)
         return self.request(HTTPMethod.DELETE, url, **kwargs)
 
-    def head(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def head(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make a HEAD request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.HEAD, url=url, **kwargs)
         return self.request(HTTPMethod.HEAD, url, **kwargs)
 
-    def options(self, url: str, **kwargs: t.Any) -> ResponseModel:
+    def options(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:
         """Make an OPTIONS request."""
+        if noexec:
+            return RequestModel(method=HTTPMethod.OPTIONS, url=url, **kwargs)
         return self.request(HTTPMethod.OPTIONS, url, **kwargs)
 
     ## lifectyle ##

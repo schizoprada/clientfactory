@@ -15,6 +15,8 @@ from clientfactory.core.protos import (
 from clientfactory.core.bases.declarative import Declarative
 from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
 
+from clientfactory.logs import log
+
 class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     """
     Abstract base class for session lifecycle management.
@@ -36,25 +38,37 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         **kwargs: t.Any
     ) -> None:
         """Initialize session with engine and auth."""
+        log.debug(f"BaseSession.__init__: class={self.__class__.__name__}")
+        log.debug(f"BaseSession.__init__: auth={auth}, persistence={persistence}")
+
         # 1. resolve components
         components = self._resolvecomponents(auth=auth, persistence=persistence)
+        log.debug(f"BaseSession.__init__: resolved components = {components}")
+
         self._auth: t.Optional[AuthProtocol] = components['auth']
         self._persistence: t.Optional[PersistenceProtocol] = components['persistence']
+        log.debug(f"BaseSession.__init__: self._auth = {self._auth}")
+        log.debug(f"BaseSession.__init__: self._persistence = {self._persistence}")
 
         # 2. resolve config
         self._config: SessionConfig = self._resolveconfig(SessionConfig, config, **kwargs)
+        log.debug(f"BaseSession.__init__: self._config = {self._config}")
 
         # 3. resolve attributes
         attrs = self._collectattributes(**kwargs)
+        log.debug(f"BaseSession.__init__: attrs = {attrs}")
         self._resolveattributes(attrs)
 
         self._closed: bool = False
         self._obj: t.Any = self._setup()
+        log.debug(f"BaseSession.__init__: setup complete, _obj = {type(self._obj)}")
 
     def _resolveattributes(self, attributes: dict) -> None:
+        log.info(f"BaseSession._resolveattributes: attributes = {attributes}")
         self._headers: dict = attributes.get('headers', {})
         self._cookies: dict = attributes.get('cookies', {})
-
+        log.info(f"BaseSession._resolveattributes: self._headers = {self._headers}")
+        log.info(f"BaseSession._resolveattributes: self._cookies = {self._cookies}")
 
     ## abstracts ##
     @abc.abstractmethod

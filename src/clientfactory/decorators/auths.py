@@ -20,10 +20,11 @@ def _transformtoauth(
     **kwargs: t.Any
 ) -> t.Type[AT]:
     """Transform a target class into the specified auth type."""
-    classdict = {}
-    for attrname in dir(target):
-        if not attrname.startswith('__'):
-            classdict[attrname] = getattr(target, attrname)
+    classdict = {
+        attrname: getattr(target, attrname)
+        for attrname in dir(target)
+        if not attrname.startswith('__') or (attrname in [f'__{comp}__' for comp in variant.__declcomps__])
+    }
 
     classdict.update(kwargs)
 

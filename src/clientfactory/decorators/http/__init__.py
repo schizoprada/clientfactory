@@ -9,3 +9,7 @@ from .methods import (
 from .contexts import (
     headers, cookies
 )
+
+from .data import (
+    param, payload
+)

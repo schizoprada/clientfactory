@@ -14,13 +14,59 @@ __url__ = "https://github.com/schizoprada/schematix"
 # Version info tuple for programmatic access
 VERSION = tuple(map(int, __version__.split('.')))
 
+from .core import (
+    Backend, Client, Resource, Session, Persistence
+)
+from .resources import (
+    ManagedResource, SearchResource
+)
+from .engines import (
+    RequestsEngine, RequestsSession
+)
+from .decorators import (
+    httpmethod, get, post,
+    put, patch, delete,
+    head, options, resource,
+   searchable, manageable,
+   headers, cookies,
+   param, payload,
+   baseauth, jwt, dpop,
+   basebackend, algolia, graphql,
+   configs, engine, persistence,
+   basesession, session
+)
+from .backends import (
+    AlgoliaConfig, AlgoliaParams,
+    AlgoliaResponse, AlgoliaBackend,
+    GQLConfig, GQLResponse,
+    GQLBackend
+)
+from .auths import (
+    JWTAuth, DPOPAuth
+)
+
+from .logs import log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # filter out pydantic warnings for models
 def HeyPydanticSTFU():
     import re, warnings
     warnings.filterwarnings(
         "ignore",
-        message=re.escape('Field name "json"') + r'.*shadows an attribute in parent "BaseModel"',
         category=UserWarning,
+        module=r"pydantic(\.|$)"
     )
 
 HeyPydanticSTFU()

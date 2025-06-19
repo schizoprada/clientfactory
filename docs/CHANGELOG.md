@@ -1,5 +1,37 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.7] (IN PROGRESS) -- *2025-06-19*
+* Enhanced decorator ecosystem and session component resolution for real-world client development
++ Declarative Component Preservation: Fixed all transform decorators to preserve declarative attributes during class transformation
+- Updated _transformtosession(), _transformtoresource(), _transformtobackend(), _transformtoauth() to preserve __component__ declarations
+- Components like __auth__, __persistence__ now properly transferred when decorators create new classes
+- Fixes issue where @session decorator wasn't preserving __auth__ declarations from decorated classes
++ Session Upgrade System: Enhanced RequestsEngine to handle session type compatibility and component transfer
+- RequestsEngine._setupsession() now upgrades generic Session instances to RequestsSession while preserving configurations
+- Automatic component transfer (auth, persistence) during session upgrade process
+- Maintains declarative patterns across engine/session boundaries
++ Configuration Resolution: Improved resource decorator configuration merging with class attributes
+- Resource decorators now collect class attributes before creating configs
+- Decorator parameters take precedence over class attributes for flexible configuration override
+- Fixes path and method resolution issues in @searchable decorator
++ Request Debugging: Added noexec parameter across HTTP method chain for request inspection
+- Added noexec flag to SearchResource.searchmethod(), BaseResource._createboundmethod(), BaseEngine convenience methods
+- Returns prepared RequestModel instead of executing when noexec=True
+- Enables debugging of fully prepared requests without network execution
++ SearchResource Enhancements: Fixed method defaults and URL construction for search operations
+- Changed SearchResourceConfig default method from GET to POST for search operations
+- Fixed URL duplication issue in SearchResource by using empty method path for search endpoints
+- Improved path parameter handling and request building for search-specific workflows
++ Schematix Integration: Enhanced None value handling in field mapping system
+- Updated schematix _applymapping() to handle None values gracefully in mapping fields
+- Prevents mapping errors when optional parameters are not provided
+- Maintains backward compatibility while improving robustness for optional API parameters
++ Comprehensive Debug Logging: Added strategic logging throughout component resolution and request pipeline
+- Enhanced component discovery debugging with traversal logging and resolution tracking
+- Request building pipeline logging for URL construction and header application debugging
+- Session initialization and configuration resolution logging for troubleshooting declarative patterns
++ Foundation Established: Complete working pattern for fashion marketplace API clients with declarative components, session management, and request debugging capabilities
+
 ## [0.8.6] -- *2025-06-18*
 * Complete declarative decorator ecosystem with HTTP contexts, configurations, persistence, engines, and data components
 + HTTP Context Decorators: @headers and @cookies for declarative request context configuration

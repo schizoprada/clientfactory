@@ -185,7 +185,7 @@ class BaseResource(abc.ABC, Declarative):
     def _createboundmethod(self, method: t.Callable) -> t.Callable:
         methodconfig = getattr(method, '_methodconfig')
 
-        def bound(*args, **kwargs):
+        def bound(*args, noexec: bool = False, **kwargs):
             # preprocess request data if configured
             if methodconfig.preprocess:
                 kwargs = methodconfig.preprocess(kwargs)
@@ -210,7 +210,10 @@ class BaseResource(abc.ABC, Declarative):
             if self._backend:
                 request = self._backend.formatrequest(request, kwargs)
 
-            response = self._session.send(request)
+            if noexec:
+                return request
+
+            response = self._client._engine.send(request)
 
             if self._backend:
                 processed = self._backend.processresponse(response)

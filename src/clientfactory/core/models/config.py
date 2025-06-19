@@ -445,7 +445,7 @@ class PersistenceConfig(DeclarableConfig):
 class SearchResourceConfig(ResourceConfig):
     """Configuration for search resources."""
     payload: t.Any = None # avoiding circular imports, can handle reference matching inside validation methods
-    method: HTTPMethod = HTTPMethod.GET
+    method: HTTPMethod = HTTPMethod.POST
     searchmethod: str = "search"
     oncall: bool = False
 

@@ -15,6 +15,8 @@ from clientfactory.core.models import (
     HTTPMethod
 )
 
+from clientfactory.logs import log
+
 if t.TYPE_CHECKING:
     from clientfactory.core.bases import BaseClient
 
@@ -105,7 +107,12 @@ class SearchResource(Resource):
 
     def _generatesearchmethod(self) -> None:
         """Generate the search method."""
-        def searchmethod(*args, **kwargs) -> t.Any:
+        #! TODO: We need to handle method configuration for this
+            # e.g. pre/post processing hooks
+        def searchmethod(*args, noexec: bool = False, **kwargs) -> t.Any:
+            # extract args into kwargs based on path parameter order
+            kwargs = self._resolvepathargs(self.path, *args, **kwargs)
+
             # validate params thru payload if defined
             if self.payload is not None:
                 pinstance = self._getpayloadinstance()
@@ -116,15 +123,31 @@ class SearchResource(Resource):
             else:
                 validated = kwargs
 
+            log.info(f"SearchResource.searchmethod: self.path = {self.path}")
+            log.info(f"SearchResource.searchmethod: self._config.path = {self._config.path}")
             # substitute path parameters
-            path = self._substitutepath(self.path, **kwargs)
+            path, consumed = self._substitutepath("", **kwargs) #! path is already set at resource level, investigate search method specific path for future
+            log.info(f"SearchResource.searchmethod: path = {path} (after consumption)")
+
+            # remove consumed parameters from validated data
+            for kwarg in consumed:
+                validated.pop(kwarg, None)
 
             # build request
             reqkwargs = self._preparerequestdata(validated)
             request = self._buildrequest(method=self.method, path=path, **reqkwargs)
 
-            # send thru session
-            response = self._session.send(request)
+            log.info(f"SearchResource.searchmethod: request.url = {request.url}")
+
+            # format through backend if available
+            if self._backend:
+                request = self._backend.formatrequest(request, kwargs)
+
+            if noexec:
+                return request
+
+            # send thru engine
+            response = self._client._engine.send(request)
 
             # process thru backend if available
             if self._backend:
@@ -138,18 +161,14 @@ class SearchResource(Resource):
         # removed oncall logic
 
     def _resolveattributes(self, attributes: dict) -> None:
+        log.debug(f"SearchResource._resolveattributes: received attributes={attributes}")
         super()._resolveattributes(attributes)
+        log.info(f"SearchResource._resolveattributes: self.path (before) = {getattr(self, 'path', 'NOTSET')} ")
         self.payload = attributes.get('payload')
-        self.method = attributes.get('method', HTTPMethod.GET)
+        self.method = attributes.get('method', HTTPMethod.POST)
         self.searchmethod = attributes.get('searchmethod', 'search')
         self.oncall = attributes.get('oncall', False)
-        print(f"""
-            DEBUG SearchResource._resolveattributes:
-                self.payload = {self.payload}
-                self.method = {self.method}
-                self.searchmethod = {self.searchmethod}
-                self.oncall = {self.oncall}
-            """)
+        log.info(f"SearchResource._resolveattributes: self.path (after) = {getattr(self, 'path', 'NOTSET')} ")
 
     def _initmethods(self) -> None:
         super()._initmethods()

@@ -10,6 +10,7 @@ from clientfactory.core.bases import BaseResource
 from clientfactory.core.models import (
     HTTPMethod, RequestModel, ResponseModel
 )
+from clientfactory.logs import log
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases import BaseClient
@@ -88,6 +89,13 @@ class Resource(BaseResource):
         resourcepath = self.path.strip('/') if self.path else ''
         methodpath = path.strip('/') if path else ''
 
+        log.info(f"""
+            Resource._buildrequest:
+                baseurl = {baseurl}
+                resourcepath = {resourcepath}
+                methodpath = {methodpath}
+            """)
+
         parts = [baseurl]
         if resourcepath:
             parts.append(resourcepath)
@@ -95,6 +103,8 @@ class Resource(BaseResource):
             parts.append(methodpath)
 
         url = '/'.join(parts)
+
+        log.info(f"Resource._buildrequest: url = {url}")
 
         fields, body = self._separatekwargs(method, **kwargs)
 
