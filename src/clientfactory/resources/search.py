@@ -89,29 +89,19 @@ class SearchResource(Resource):
         return self.payload
 
 
-    def _preparerequestdata(self, data: dict) -> dict:
-        """Prepare validated data for request building"""
-        def alreadyprepped(data: dict) -> bool:
-            prepped = False
-            if ('params' in data) or ('json' in data):
-                if len(list(data.keys())) == 1: # top level key
-                    prepped = True
-            return prepped
-
-        if alreadyprepped(data):
-            return data
-
-        if (self.method == HTTPMethod.GET):
-            return {"params": data}
-        return {"json": data}
-
     def _generatesearchmethod(self) -> None:
         """Generate the search method."""
         #! TODO: We need to handle method configuration for this
             # e.g. pre/post processing hooks
         def searchmethod(*args, noexec: bool = False, **kwargs) -> t.Any:
+            log.info(f"""
+                SearchResource.searchmethod:
+                    Initial Args: {args}
+                    Initial Kwargs: {kwargs}
+                """)
             # extract args into kwargs based on path parameter order
             kwargs = self._resolvepathargs(self.path, *args, **kwargs)
+            log.info(f"SearchResource.searchmethod: kwargs after path resolution = {kwargs}")
 
             # validate params thru payload if defined
             if self.payload is not None:
@@ -123,19 +113,18 @@ class SearchResource(Resource):
             else:
                 validated = kwargs
 
-            log.info(f"SearchResource.searchmethod: self.path = {self.path}")
-            log.info(f"SearchResource.searchmethod: self._config.path = {self._config.path}")
+            log.info(f"SearchResource.searchmethod: kwargs after validation = {validated}")
+
+
             # substitute path parameters
-            path, consumed = self._substitutepath("", **kwargs) #! path is already set at resource level, investigate search method specific path for future
-            log.info(f"SearchResource.searchmethod: path = {path} (after consumption)")
+            path, consumed = self._substitutepath("", **kwargs) #!
 
             # remove consumed parameters from validated data
             for kwarg in consumed:
                 validated.pop(kwarg, None)
 
             # build request
-            reqkwargs = self._preparerequestdata(validated)
-            request = self._buildrequest(method=self.method, path=path, **reqkwargs)
+            request = self._buildrequest(method=self.method, path=path, **validated)
 
             log.info(f"SearchResource.searchmethod: request.url = {request.url}")
 
@@ -143,11 +132,10 @@ class SearchResource(Resource):
             if self._backend:
                 request = self._backend.formatrequest(request, kwargs)
 
-            if noexec:
-                return request
-
             # send thru engine
-            response = self._client._engine.send(request)
+            response = self._client._engine.send(request, noexec=noexec)
+            if isinstance(response, RequestModel):
+                return response
 
             # process thru backend if available
             if self._backend:

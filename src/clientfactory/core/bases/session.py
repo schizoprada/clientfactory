@@ -86,7 +86,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         """
 
     @abc.abstractmethod
-    def _preparerequest(self, request: RequestModel) -> RequestModel:
+    def _preparerequest(self, request: RequestModel, noexec: bool = False) -> RequestModel:
         """
         Session-specific request preparation.
 
@@ -95,7 +95,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         ...
 
     @abc.abstractmethod
-    def _makerequest(self, request: RequestModel) -> ResponseModel:
+    def _makerequest(self, request: RequestModel, noexec: bool = False) -> t.Union[RequestModel, ResponseModel]:
         """Session-specific request execution"""
         ...
 
@@ -141,7 +141,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
 
 
     ## core methods ##
-    def preparerequest(self, request: RequestModel) -> RequestModel:
+    def preparerequest(self, request: RequestModel, noexec: bool = False) -> RequestModel:
         """
         Prepare request for sending.
 
@@ -158,7 +158,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
                 prepared = self._auth.applyauth(prepared)
 
         # instance-specific preparation
-        prepared = self._preparerequest(prepared)
+        prepared = self._preparerequest(prepared, noexec=noexec)
 
         return prepared
 
@@ -177,7 +177,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         return processed
 
 
-    def send(self, request: RequestModel) -> ResponseModel:
+    def send(self, request: RequestModel, noexec: bool = False) -> t.Union[RequestModel, ResponseModel]:
         """
         Send a request and return response.
 
@@ -186,10 +186,11 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         self._checknotclosed()
 
         # prepare the request
-        prepared = self.preparerequest(request)
+        prepared = self.preparerequest(request, noexec=noexec)
 
-        response = self._makerequest(prepared) # session literal handles
-
+        response = self._makerequest(prepared, noexec=noexec) # session literal handles
+        if isinstance(response, RequestModel):
+            return response
         # process response
         return self.processresponse(response)
 

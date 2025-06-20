@@ -71,7 +71,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         usesession: bool,
         noexec: bool = False,
         **kwargs: t.Any
-    ) -> ResponseModel:
+    ) -> t.Union[RequestModel, ResponseModel]:
         """
         Implementation-specific request method.
 
@@ -86,8 +86,9 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         url: str,
         configoverride: bool = False,
         usesession: bool = True,
+        noexec: bool = False,
         **kwargs: t.Any
-    ) -> ResponseModel:
+    ) -> t.Union[RequestModel, ResponseModel]:
         """Make an HTTP request"""
         self._checknotclosed()
 
@@ -102,7 +103,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         if configoverride:
             kwargs.update(self._config.requestoverrides())
 
-        return self._makerequest(method, url, usesession, **kwargs)
+        return self._makerequest(method, url, usesession, noexec=noexec, **kwargs)
 
     def _applyconfigfallbacks(self, requestkwargs: dict, noapply: t.Optional[t.List[str]] = None) -> dict:
         """
@@ -136,14 +137,14 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         noexec: bool = False,
         configoverride: bool = False,
         usesession: bool = True, # should execute request with session
-    ) -> ResponseModel:
+    ) -> t.Union[RequestModel, ResponseModel]:
         """Send a prepared request object."""
         self._checknotclosed()
         kwargs = request.tokwargs()
         kwargs = self._applyconfigfallbacks(kwargs) # apply fallbacks from config
         if configoverride:
             kwargs.update(self._config.requestoverrides())
-        return self._makerequest(request.method, request.url, usesession, **kwargs)
+        return self._makerequest(request.method, request.url, usesession, noexec=noexec, **kwargs)
 
     ## convenience methods ##
     def get(self, url: str, noexec: bool = False, **kwargs: t.Any) -> t.Union[ResponseModel, RequestModel]:

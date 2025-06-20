@@ -20,6 +20,7 @@ import schematix as sex
 from clientfactory.core.protos import PayloadProtocol
 from clientfactory.core.models.enums import HTTPMethod
 from clientfactory.core.models.config import PayloadConfig
+from clientfactory.logs import log
 
 if t.TYPE_CHECKING:
     import requests as rq
@@ -71,8 +72,11 @@ class RequestModel(PydModel):
 
     def withheaders(self, headers: t.Dict[str, str]) -> RequestModel:
         """Return new request with additional headers."""
+        log.info(f"RequestModel.withheaders: current = {self.headers}")
+        log.info(f"RequestModel.withheaders: new = {headers}")
         new = self.headers.copy()
         new.update(headers)
+        log.info(f"RequestModel.withheaders: after updating = {new}")
         return self.model_copy(update={"headers": new})
 
     def withauth(self, header: str, value: str) -> RequestModel:
@@ -317,9 +321,9 @@ class BoundPayload:
                 value = boundfield.extract(data)
 
                 # Use target as key, just like Payload.transform()
-                key = getattr(boundfield, 'target', None) or fieldname
-
-                result[key] = value
+                #key = getattr(boundfield, 'target', None) or fieldname
+                #result[key] = value
+                boundfield.assign(result, value)
             except Exception as e:
                 raise ValueError(f"Bound transform failed on field '{fieldname}': {e}")
 
@@ -357,8 +361,9 @@ class Payload(sex.Schema): #! PayloadProtocol removed
         for fieldname, field in self._fields.items():
             try:
                 value = field.extract(data)
-                key = (field.target or fieldname)
-                result[key] = value
+                #key = (field.target or fieldname)
+                #result[key] = value
+                field.assign(result, value)
             except Exception as e:
                 raise ValueError(f"Transform failed on field '{fieldname}': {e}")
 

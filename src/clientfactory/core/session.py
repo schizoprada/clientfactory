@@ -23,7 +23,7 @@ class Session(BaseSession):
     def _cleanup(self) -> None:
         self._savepersistentstate()
 
-    def _preparerequest(self, request: RequestModel) -> RequestModel:
+    def _preparerequest(self, request: RequestModel, noexec: bool = False) -> RequestModel:
 
         if self._obj['headers']:
             request = request.withheaders(self._obj['headers'])
@@ -33,7 +33,7 @@ class Session(BaseSession):
 
         return request
 
-    def _makerequest(self, request: RequestModel) -> ResponseModel:
+    def _makerequest(self, request: RequestModel, noexec: bool = False) -> ResponseModel:
         raise NotImplementedError(f"Session should not make requests directly - use engine")
 
     def _processresponse(self, response: ResponseModel) -> ResponseModel:

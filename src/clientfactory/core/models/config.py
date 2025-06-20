@@ -293,6 +293,16 @@ class SessionConfig(DeclarableConfig):
 
         return self.model_copy(update=updates)
 
+    def updateheaders(self, headers: dict) -> 'SessionConfig':
+        new = self.headers.copy()
+        new.update(headers)
+        return self.model_copy(update={'defaultheaders': new})
+
+    def updatecookies(self, cookies: dict) -> 'SessionConfig':
+        new = self.cookies.copy()
+        new.update(cookies)
+        return self.model_copy(update={'defaultcookies': new})
+
 class EngineConfig(DeclarableConfig):
     """Configuration for request engines."""
     verify: bool = True

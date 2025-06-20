@@ -230,10 +230,12 @@ class BaseClient(abc.ABC, Declarative):
             if self._backend:
                 request = self._backend.formatrequest(request, kwargs)
 
-            if noexec:
-                return request
 
-            response = self._engine.send(request)
+
+            response = self._engine.send(request, noexec=noexec)
+
+            if isinstance(response, RequestModel):
+                return response
 
             if self._backend:
                 processed = self._backend.processresponse(response)
