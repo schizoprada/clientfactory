@@ -51,13 +51,14 @@ class RequestsSession(BaseSession):
         if self._config.defaultcookies:
             session.cookies.update(self._config.defaultcookies)
 
+        if self._initializer:
+            session = self._initializer.initialize(session)
+
         # Configure adapters for retries if needed
         if self._config.maxretries > 0:
             adapter = HTTPAdapter(max_retries=self._config.maxretries)
-            #adapter = HTTP11Adapter()
             session.mount("http://", adapter)
             session.mount("https://", adapter)
-            pass
 
         return session
 

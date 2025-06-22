@@ -1,5 +1,26 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.9] -- *2025-06-22*
+* Session Initializers: Dynamic session bootstrapping with request-based initialization
++ SessionInitializer Implementation: Core logic for extracting session state from HTTP requests
+- SessionInitializer class with configurable extraction modes (cookies, headers)
+- Support for merge strategies: MERGE, OVERWRITE, IGNORE for both cookies and headers
+- Self-contained request execution using raw requests library for maximum compatibility
+- Flexible object handling: dict-style session objects, requests.Session objects, and generic attribute-based objects
+- MergeMode enum for declarative merge behavior configuration
++ Session Integration: Seamless integration with existing session architecture
+- Added 'initializer' to BaseSession declarative attributes for automatic discovery
+- Integration with Session._setup() and RequestsSession._setup() for automatic initialization
+- Component resolution support for declarative session initialization patterns
+- Zero breaking changes to existing session functionality
++ Foundation for Advanced Patterns: Architecture ready for future session initialization enhancements
+- Protocol foundation established for pluggable initialization strategies
+- Request-based initialization pattern ready for browser automation integration
+- Session state extraction utilities ready for complex authentication flows
+- Error handling framework for failed initialization attempts
+
+**Note**: Core session initializer logic complete. Future versions will add AutomatonAuthInitializer for browser automation, session state persistence integration, and enhanced error handling strategies as outlined in roadmap.
+
 ## [0.8.8] -- *2025-06-22*
 * Enhanced backend infrastructure and standalone resource architecture with comprehensive payload improvements
 + Enhanced AlgoliaBackend: Universal utilities for real-world Algolia implementations

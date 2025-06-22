@@ -7,7 +7,10 @@ Abstract base class for session lifecycle management.
 from __future__ import annotations
 import abc, typing as t
 
-from clientfactory.core.models import RequestModel, ResponseModel, SessionConfig
+from clientfactory.core.models import (
+    RequestModel, ResponseModel, SessionConfig,
+    SessionInitializer, MergeMode
+)
 from clientfactory.core.protos import (
     SessionProtocol, AuthProtocol, RequestEngineProtocol,
     PersistenceProtocol
@@ -28,7 +31,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     __declaredas__: str = 'session'
     __declcomps__: set = {'auth', 'persistence'}
     __declattrs__: set = {'headers', 'cookies', 'useragent'}
-    __declconfs__: set = {'timeout', 'retries', 'verifyssl', 'allowredirects', 'maxredirects'}
+    __declconfs__: set = {'timeout', 'retries', 'verifyssl', 'allowredirects', 'maxredirects', 'initializer'}
 
     def __init__(
         self,
@@ -67,8 +70,7 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         log.info(f"BaseSession._resolveattributes: attributes = {attributes}")
         self._headers: dict = attributes.get('headers', {})
         self._cookies: dict = attributes.get('cookies', {})
-        log.info(f"BaseSession._resolveattributes: self._headers = {self._headers}")
-        log.info(f"BaseSession._resolveattributes: self._cookies = {self._cookies}")
+        self._initializer: t.Optional[SessionInitializer] = attributes.get('initializer')
 
     ## abstracts ##
     @abc.abstractmethod

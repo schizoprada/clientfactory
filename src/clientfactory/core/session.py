@@ -18,6 +18,9 @@ class Session(BaseSession):
         }
         self._loadpersistentstate()
 
+        if self._initializer:
+            obj = self._initializer.initialize(obj)
+
         return obj
 
     def _cleanup(self) -> None:

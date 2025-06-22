@@ -24,7 +24,7 @@ from .request import (
 )
 
 from .contexts import (
-    Headers, Cookies
+    Headers, Cookies, SessionInitializer, MergeMode
 )
 
 #forwardref()
