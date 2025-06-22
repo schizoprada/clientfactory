@@ -1,5 +1,31 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.0] -- *2025-06-22*
+* Gateway Requests: Support for APIs accessed through proxy/gateway endpoints
++ GatewayBackend Implementation: Complete proxy request pattern support for API gateway architectures
+- `GatewayBackend` base class for URL encoding and gateway parameter wrapping
+- Configurable gateway URL and URL parameter names for different proxy patterns
+- Automatic target URL construction with query parameter encoding
+- Seamless integration with existing client/resource baseurl and path patterns
+- Support for gateway URLs with existing parameters and proper separator handling
++ Declarative Gateway Configuration: Framework integration with existing component architecture
+- Added 'gatewayurl' and 'urlparam' to declarative attributes for class-level configuration
+- Component resolution support for gateway backend declarations
+- Error handling for missing required gateway configuration parameters
+- Flexible initialization supporting both constructor and declarative configuration patterns
++ Request Processing Pipeline: Enhanced request formatting for proxy/gateway scenarios
+- Gateway request formatting preserves original HTTP method while redirecting to proxy endpoint
+- Target URL encoding as query parameters to gateway endpoints
+- Support for complex parameter merging (gateway params + original request data)
+- Response processing maintains compatibility with existing backend response handling
++ Foundation for Gateway Patterns: Architecture supporting diverse proxy/gateway implementations
+- Extensible pattern ready for different gateway formats (query parameter, POST body, custom headers)
+- Request tunneling support for API testing environments and corporate gateways
+- Gateway debugging and inspection capabilities through existing request/response logging
+- Mixin-ready architecture for adding gateway functionality to existing backends
+
+**Use Cases**: API playgrounds (Rakuten), corporate API gateways, request tunneling, API testing environments, proxy-based authentication flows
+
 ## [0.8.9] -- *2025-06-22*
 * Session Initializers: Dynamic session bootstrapping with request-based initialization
 + SessionInitializer Implementation: Core logic for extracting session state from HTTP requests
