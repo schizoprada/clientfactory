@@ -30,7 +30,7 @@ class BaseResource(abc.ABC, Declarative):
     """
     __declaredas__: str = 'resource'
     __declcomps__: set = {'auth', 'backend', 'persistence', 'session'}
-    __declattrs__: set = {'path', 'name', 'description', 'tags'}
+    __declattrs__: set = {'path', 'name', 'description', 'tags', 'standalone', 'baseurl'}
     __declconfs__: set = {'timeout', 'retries'}
 
     def __init__(
@@ -66,6 +66,8 @@ class BaseResource(abc.ABC, Declarative):
         self.path: str = attributes.get('path', '')
         self.name: str = attributes.get('name', '')
         self.description: str = attributes.get('description', '')
+        self.baseurl: t.Optional[str] = attributes.get('baseurl')
+        self.standalone: bool = attributes.get('standalone', False)
 
     ## abstracts ##
     @abc.abstractmethod

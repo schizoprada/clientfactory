@@ -74,7 +74,7 @@ class AlgoliaBackend(BaseBackend):
     Handles Algolia's specific API format, authentication, and response processing.
     """
     __declaredas__: str = 'algolia'
-    __declattrs__: set[str] = BaseBackend.__declattrs__ | {'appid', 'apikey', 'index', 'indices'}
+    __declattrs__: set[str] = BaseBackend.__declattrs__ | {'appid', 'apikey', 'index', 'indices', 'facetsmap', 'numerics'}
     __declconfs__: set[str] = BaseBackend.__declconfs__ | {'urlbase', 'agent', 'indices', 'index', 'appid', 'apikey', 'content'}
 
     def __init__(
@@ -99,6 +99,102 @@ class AlgoliaBackend(BaseBackend):
         self.appid: str = attributes.get('appid', '')
         self.apikey: str = attributes.get('apikey', '')
         self.index: str = attributes.get('index', '')
+        self.facetsmap: dict = attributes.get('facetsmap', {})
+        self.numerics: list = attributes.get('numerics', [])
+
+    def _buildfacetfilters(self, data: dict, facetsmap: t.Optional[dict] = None) -> list:
+        """Build standard Algolia facet filters from data.
+
+        Args:
+            data: Input data dictionary
+            facetmapping: Optional mapping of data keys to Algolia facet names
+                         e.g. {"designers": "designers.name", "department": "department"}
+
+        Returns:
+            List of facet filters in Algolia format: [["facet:value"], ["facet2:value2"]]
+        """
+        filters = []
+        mapping = (facetsmap or self.facetsmap or {})
+
+        for k,v in data.items():
+            if (v is None) or (v == ""):
+                continue
+
+            # Get the facet name (use mapping if provided, otherwise use key as-is)
+            facetname = mapping.get(k, k)
+
+            if isinstance(v, list):
+                # Multiple values for same facet (OR logic within the group)
+                if v:
+                    # Only add if list is not empty
+                    group = [f"{facetname}:{val}" for val in v if val is not None]
+                    if group:
+                        filters.append(group)
+            else:
+                filters.append([f"{facetname}:{v}"])
+
+        return filters
+
+    def _buildnumericfilters(self, data: dict, numeric: t.Optional[list] = None) -> list:
+        """"""
+        filters = []
+        numerics = (numeric or self.numerics or [])
+
+        for field in numerics:
+            minkey = f"{field}_min"
+            maxkey = f"{field}_max"
+
+            if (minkey in data) and (data[minkey] is not None):
+                filters.append(f"{field}>={data[minkey]}")
+
+            if (maxkey in data) and (data[maxkey] is not None):
+                filters.append(f"{field}<={data[maxkey]}")
+
+            # check for direct field acces with operators
+            if (field in data) and (data[field] is not None):
+                value = data[field]
+                if isinstance(value, dict):
+                    if ("min" in value) and (value["min"] is not None):
+                        filters.append(f"{field}>={data["min"]}")
+                    if ("max" in value) and (value["max"] is not None):
+                        filters.append(f"{field}<={data["max"]}")
+                elif isinstance(value, (int, float)):
+                    filters.append(f"{field}={value}")
+
+        return filters
+
+    def _buildstandardparams(self, data: dict) -> dict:
+        """
+        Build common Algolia parameters from data.
+
+        Args:
+            data: Input data dictionary
+
+        Returns:
+            Dict of standard Algolia parameters
+        """
+        #! todo: convert to Schema
+        params = {}
+        standard = {
+            'analytics',
+            'click_analytics',
+            'enable_ab_test',
+            'highlight_pre_tag',
+            'highlight_post_tag',
+            'facets',
+            'max_values_per_facet',
+            'get_ranking_info',
+            'attributes_to_retrieve',
+            'attributes_to_highlight',
+        }
+        camelize = lambda s: s if ('_' not in s) else (s.split('_')[0] + ''.join(w.title() for w in s.split('_')[1:]))
+        for key in standard:
+            camel = camelize(key)
+            if (key in data):
+                params[camel] = data[key]
+            elif (camel in data):
+                params[camel] = data[camel]
+        return params
 
     def _convertparams(self, data: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         """Convert search parameters to Algolia format."""
@@ -122,6 +218,21 @@ class AlgoliaBackend(BaseBackend):
             raise ValueError("At least one index is required for Algolia search")
 
         parameters = self._convertparams(data)
+
+        # add facet filters
+        facetfilters = self._buildfacetfilters(data)
+        if facetfilters:
+            parameters['facetFilters'] = facetfilters
+
+        # add numeric filters
+        numericfilters = self._buildnumericfilters(data)
+        if numericfilters:
+            parameters['numericFilters'] = numericfilters
+
+        # add standard parameters
+        standardparams = self._buildstandardparams(data)
+        parameters.update(standardparams)
+
 
         # encode if configured
         if self._config.encodeparams:

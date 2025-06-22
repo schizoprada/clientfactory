@@ -1,5 +1,44 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.8.8] -- *2025-06-22*
+* Enhanced backend infrastructure and standalone resource architecture with comprehensive payload improvements
++ Enhanced AlgoliaBackend: Universal utilities for real-world Algolia implementations
+- `_buildfacetfilters()` method for standard Algolia facet filter construction with mapping support
+- `_buildnumericfilters()` method for numeric range filters (min/max patterns, dict formats, single values)
+- `_buildstandardparams()` method for common Algolia parameters with snake_case to camelCase conversion
+- Updated `_formatrequest()` to integrate all new filter utilities automatically
+- Added `facetsmap` and `numerics` to declarative attributes for class-level configuration
+- Backward compatibility maintained with existing AlgoliaBackend functionality
++ Standalone Resource Architecture: Independent resource configuration for multi-backend scenarios
+- Added `standalone` and `baseurl` to BaseResource declarative attributes (`__declattrs__`)
+- Resources can now declare independent baseurls, sessions, and backends
+- Updated `_buildrequest()` methods to prefer resource baseurl over client baseurl when available
+- Enhanced component resolution logic to support resource-level component declarations
+- Enables patterns like Grailed client with standalone Algolia search resource
++ Enhanced Payload System: Improved data transformation and validation capabilities
+- Modified `Payload.transform()` to use schematix's `field.assign()` for proper nested structure creation
+- Enhanced `BoundPayload.serialize()` with better nested object handling for complex targets
+- Added support for multi-value field handling to prevent "unhashable type" errors with lists
+- Implemented reusable source definitions with `Sourced.Keyword >> TargetField` composition patterns
+- Added conditional field support with dependency resolution for dynamic field behavior
+- Improved error handling for missing computed dependencies in non-required conditional fields
+- Better integration with schematix mapping and validation pipeline
++ Enhanced Request Processing: Improved parameter handling for GET requests with payloads
+- Updated `_separatekwargs()` method to handle GET requests with payload data as query parameters
+- Enhanced SearchResource to support GET requests with payload validation
+- Fixed component resolution fallback logic for better resource independence
+- Improved parameter transformation pipeline for complex API patterns
++ Comprehensive Testing and Validation: Real-world implementation patterns
+- Complete Grailed marketplace implementation as validation case
+- Enhanced AlgoliaBackend tested with complex filter scenarios
+- Standalone resource patterns validated with multi-backend client architectures
+- Payload transformation testing with nested structures and conditional fields
++ Foundation for Advanced Patterns: Architecture supporting future enhancements
+- Established mixin-ready backend architecture for Phase 2 enhancements
+- Component resolution patterns supporting complex inheritance scenarios
+- Declarative system enhancements supporting advanced configuration patterns
+- Request processing pipeline ready for gateway/proxy request implementations
+
 ## [0.8.7] -- *2025-06-19*
 * Enhanced decorator ecosystem and session component resolution for real-world client development
 + Declarative Component Preservation: Fixed all transform decorators to preserve declarative attributes during class transformation

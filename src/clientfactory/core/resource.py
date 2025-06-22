@@ -85,7 +85,9 @@ class Resource(BaseResource):
         if isinstance(method, str):
             method = HTTPMethod(method.upper())
 
-        baseurl = self._client.baseurl.rstrip('/')
+        urlbase = self.baseurl if self.baseurl is not None else self._client.baseurl
+
+        baseurl = urlbase.rstrip('/')
         resourcepath = self.path.strip('/') if self.path else ''
         methodpath = path.strip('/') if path else ''
 
