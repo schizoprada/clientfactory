@@ -56,8 +56,7 @@ class RequestModel(PydModel):
         if (self.json is not None) and (self.data is not None):
             raise ValueError(f"Cannot specify both 'json' and 'data'")
 
-        if (self.method == HTTPMethod.GET) and (self.json or self.data):
-            raise ValueError(f"GET requests cannot have body")
+
     ## pydantic tweaks ##
     def modeljson(self) -> str:
         """Serialize model to JSON string (reroutes original BaseModel.json)."""
@@ -274,6 +273,7 @@ class Param(sex.Field):
         required: bool = False,
         default: t.Any = None,
         transform: t.Optional[t.Callable] = None,
+        allownone: bool = True,
         **kwargs: t.Any
     ) -> None:
         """Initialize parameter with clientfactory extensions."""
@@ -286,6 +286,7 @@ class Param(sex.Field):
             transform=transform,
             **kwargs
         )
+        self.allownone: bool = allownone
 
     def __set_name__(self, owner, name):
         """Called when Param is assigned to a class attribute."""
@@ -314,16 +315,16 @@ class BoundPayload:
     def serialize(self, data: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         """Serialize using bound schema with ClientFactory target-key behavior."""
         result = {}
-
+        isbound = lambda field: hasattr(field, 'extractonly') and hasattr(field, 'targetfield')
         # Use the bound fields, but apply ClientFactory target-key logic
-        for fieldname, boundfield in self.boundto._boundfields.items():
+        for fieldname, field in self.boundto._boundfields.items():
             try:
-                value = boundfield.extract(data)
-
-                # Use target as key, just like Payload.transform()
-                #key = getattr(boundfield, 'target', None) or fieldname
-                #result[key] = value
-                boundfield.assign(result, value)
+                if isbound(field):
+                    value = field.extractonly(data) # type: ignore
+                    field.targetfield.assign(result, value) # type: ignore
+                else:
+                    value = field.extract(data)
+                    field.assign(result, value)
             except Exception as e:
                 raise ValueError(f"Bound transform failed on field '{fieldname}': {e}")
 
@@ -349,27 +350,52 @@ class Payload(sex.Schema): #! PayloadProtocol removed
 
     def _assigntargets(self) -> None:
         """Fix field targets after SchemaMeta has set names but before target defaulting"""
+        isbound = lambda field: hasattr(field, 'extractonly') and hasattr(field, 'targetfield')
         for fieldname, field in self._fields.items():
+            if isbound(field):
+                continue
             if hasattr(field, 'target') and field.target is None:
                 field.target = field.name
 
     ## inheritance overrides ##
     def transform(self, data: t.Any, typetarget: t.Optional[t.Type] = None) -> t.Any:
         """Transform data using schematix with PayloadProtocol compatibility."""
+        from schematix.core.deps import DependencyResolver
+
+        # use schematix built-in transform to handle conditional fields
+        resolver = DependencyResolver(self._fields)
+        execorder = resolver.resolveorder()
+
+        computed = {}
         result = {}
-        # not calling super in order to use target key instead
-        for fieldname, field in self._fields.items():
+        isbound = lambda field: hasattr(field, 'extractonly') and hasattr(field, 'targetfield')
+        allowsnone = lambda field: hasattr(field, 'allownone') and getattr(field, 'allownone', True)
+        # process fields in dependency order
+        for fieldname in execorder:
+            field = self._fields[fieldname]
             try:
-                value = field.extract(data)
-                #key = (field.target or fieldname)
-                #result[key] = value
-                field.assign(result, value)
+                if isbound(field):
+                    value = field.extractonly(data) # type: ignore
+                    computed[fieldname] = value
+                    if not field.transient:
+                        if (value is None) and (not allowsnone(field)): # skip fields with none values if they dont allow it
+                            continue
+                        field.targetfield.assign(result, value) # type: ignore
+                else:
+                    value = field.extract(data, computed)
+                    computed[fieldname] = value
+                    if not field.transient:
+                        if (value is None) and (not allowsnone(field)):
+                            continue
+                        field.assign(result, value)
             except Exception as e:
                 raise ValueError(f"Transform failed on field '{fieldname}': {e}")
 
         if typetarget is not None:
             return self._typeconvert(result, typetarget)
         return result
+
+
 
     def bind(self, mapping: t.Dict[str, t.Any]) -> BoundPayload: # type: ignore
         boundschema = super().bind(mapping)

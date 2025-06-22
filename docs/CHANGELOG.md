@@ -1,6 +1,6 @@
 # CLIENTFACTORY - CHANGELOG
 
-## [0.8.7] (IN PROGRESS) -- *2025-06-19*
+## [0.8.7] -- *2025-06-19*
 * Enhanced decorator ecosystem and session component resolution for real-world client development
 + Declarative Component Preservation: Fixed all transform decorators to preserve declarative attributes during class transformation
 - Updated _transformtosession(), _transformtoresource(), _transformtobackend(), _transformtoauth() to preserve __component__ declarations

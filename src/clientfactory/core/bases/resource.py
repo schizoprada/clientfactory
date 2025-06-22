@@ -147,7 +147,21 @@ class BaseResource(abc.ABC, Declarative):
                 else:
                     body[k] = v
         else:
-            fields = kwargs
+            # for GET/HEAD/OPTIONS, put non-field kwargs into params
+            extparams = kwargs.get('params', {})
+            newparams = {}
+            for k, v in kwargs.items():
+                if k in fieldnames:
+                    if k == 'params':
+                        continue
+                    fields[k] = v
+                else:
+                    newparams[k] = v
+
+            # merge all params
+            if (newparams or extparams):
+                params = {**extparams, **newparams}
+                fields['params'] = params
 
         return (fields, body)
 

@@ -104,9 +104,8 @@ def _validatemethodusage(
     payload: t.Optional[t.Union[Payload, t.Type[Payload]]],
     func: t.Callable
 ) -> None:
-    if (method.value in ("GET", "HEAD")) and payload is not None:
-        raise ValueError(f"{method.value} method '{func.__name__}' cannot have a payload")
-    #! future GET will support payloads so we gotta clean this up later
+    # all method allowed
+    pass
 
 def httpmethod(
     method: HTTPMethod,
