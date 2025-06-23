@@ -70,6 +70,14 @@ class MethodConfig(PydModel):
             raise ValueError("Method name is required")
         return v
 
+    def pathparams(self) -> t.List[str]:
+        """Get the parameters defined in this configs path (empty list of path is None or no params in path)."""
+        if self.path is None:
+            return []
+        import string
+        formatter = string.Formatter()
+        return [name for _, name, _, _ in formatter.parse(self.path) if name]
+
 class ResourceConfig(PydModel):
    """Configuration for a resource."""
    name: str

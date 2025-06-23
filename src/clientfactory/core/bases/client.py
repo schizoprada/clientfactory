@@ -19,6 +19,7 @@ from clientfactory.core.bases.engine import BaseEngine
 from clientfactory.core.bases.auth import BaseAuth
 from clientfactory.core.bases.declarative import Declarative
 from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
+from clientfactory.core.models.methods import BoundMethod
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.resource import BaseResource
@@ -202,7 +203,7 @@ class BaseClient(abc.ABC, Declarative):
             **fields
         )
 
-    def _createboundmethod(self, method: t.Callable) -> t.Callable:
+    def _createboundmethod(self, method: t.Callable) -> BoundMethod:
         methodconfig = getattr(method, '_methodconfig')
 
         def bound(*args, noexec: bool = False, **kwargs):
@@ -250,7 +251,7 @@ class BaseClient(abc.ABC, Declarative):
         bound.__name__ = method.__name__
         bound.__doc__ = method.__doc__
         setattr(bound, '_methodconfig', methodconfig)
-        return bound
+        return BoundMethod(bound, self, methodconfig)
 
     def _initmethods(self) -> None:
         """Initialize client-level HTTP methods."""

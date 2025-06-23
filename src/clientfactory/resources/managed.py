@@ -15,6 +15,7 @@ from clientfactory.core.models import (
     Payload, RequestModel,
     HTTPMethod, MethodConfig
 )
+from clientfactory.core.models.methods import BoundMethod
 
 class ManagedResource(Resource):
     """

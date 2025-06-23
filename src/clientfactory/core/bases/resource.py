@@ -17,6 +17,7 @@ from clientfactory.core.protos import (
 from clientfactory.core.bases.session import BaseSession
 from clientfactory.core.bases.declarative import Declarative
 from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
+from clientfactory.core.models.methods import BoundMethod
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
@@ -198,7 +199,7 @@ class BaseResource(abc.ABC, Declarative):
 
         return result
 
-    def _createboundmethod(self, method: t.Callable) -> t.Callable:
+    def _createboundmethod(self, method: t.Callable) -> BoundMethod:
         methodconfig = getattr(method, '_methodconfig')
 
         def bound(*args, noexec: bool = False, **kwargs):
@@ -246,7 +247,7 @@ class BaseResource(abc.ABC, Declarative):
         bound.__doc__ = method.__doc__
         setattr(bound, '_methodconfig', methodconfig)
 
-        return bound
+        return BoundMethod(bound, self, methodconfig)
 
     def addmethod(self, method: t.Callable, name: t.Optional[str] = None) -> None:
         """Add method to resource."""

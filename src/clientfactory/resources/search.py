@@ -12,8 +12,9 @@ from clientfactory.core.protos import BackendProtocol
 from clientfactory.core.bases import BaseResource, BaseSession
 from clientfactory.core.models import (
     Payload, RequestModel, SearchResourceConfig,
-    HTTPMethod
+    HTTPMethod, MethodConfig
 )
+from clientfactory.core.models.methods import BoundMethod
 
 from clientfactory.logs import log
 
@@ -145,7 +146,17 @@ class SearchResource(Resource):
         # set method name and register
         searchmethod.__name__ = self.searchmethod
         searchmethod.__doc__ = self._generatedocstring()
-        self._registermethod(searchmethod, self.searchmethod)
+
+        # create a method config
+        methodconfig = MethodConfig(
+            name=self.searchmethod,
+            method=self.method,
+            path=self.path
+        )
+
+        bound = BoundMethod(searchmethod, self, methodconfig)
+
+        self._registermethod(bound, self.searchmethod)
         # removed oncall logic
 
     def _resolveattributes(self, attributes: dict) -> None:
