@@ -58,10 +58,6 @@ class MethodConfig(PydModel):
     ## pydantic configs ##
     model_config= {"frozen": True}
 
-    def model_post_init(self, __context: t.Any, /) -> None:
-        if (self.method == HTTPMethod.GET) and self.payload:
-            raise ValueError("GET methods should not have payloads")
-
     ## field validators ##
     @fieldvalidator('name')
     @classmethod

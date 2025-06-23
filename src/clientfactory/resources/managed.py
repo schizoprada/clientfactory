@@ -47,6 +47,9 @@ class ManagedResource(Resource):
 
     def _generatecrudmethods(self, operations: set[str]) -> None:
         """Generate standard CRUD methods."""
+        #! TODO:
+        ## Figure out how to properly allow CRUD method MethodConfig configuration
+
         generators: dict[str, t.Callable] = {
             'create': crud.create,
             'read': crud.read,

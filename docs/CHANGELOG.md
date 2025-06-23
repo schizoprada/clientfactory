@@ -1,5 +1,58 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.1] -- *2025-06-23*
+* Smart Requesting Utilities: Advanced parameter iteration with comprehensive cycle support and error handling
++ Parameter Iteration Framework: Complete system for iterating over method parameters with multi-pattern support
+- IterCycle model with numeric generation (start/end/step), explicit values, and Param inference from metadata
+- Smart parameter discovery: automatic detection of page/pagination parameters from path templates and payload classes
+- Multiple iteration patterns: direct kwargs, builder methods, static parameter management, namespace conflict resolution
+- Support for dict-based iteration (BRANDS mapping), list-based iteration, and complex nested cycles
+- Step filtering with callable filters and numeric stepping for advanced value selection
++ Enhanced BoundMethod Architecture: Integration of iteration capabilities with existing method infrastructure
+- BoundMethod class now inherits from IterMixin providing iteration capabilities to all HTTP methods
+- Updated _createboundmethod() in BaseClient, BaseResource, SearchResource, and ManagedResource
+- Seamless integration maintaining backward compatibility with existing method decoration system
+- All decorated methods (@get, @post, @searchable, @manageable) now support parameter iteration
++ Comprehensive Error Handling: Configurable error strategies with retry logic and callback support
+- ErrorHandles enum: CONTINUE (skip failed iterations), STOP (halt on error), RETRY (with exponential backoff), CALLBACK (user-defined logic)
+- Built-in retry mechanism with configurable maxretries, retrydelay, and intelligent error propagation
+- Callback system with defined signature: ErrorCallback = Callable[[Exception, IterCycle], bool]
+- Proper error isolation: cycle-level errors don't terminate primary iteration, enabling robust batch processing
++ Multi-Pattern Parameter Support: Flexible approaches for different use cases and coding styles
+- Builder pattern: method.range(1, 10).values(['a','b']).withparams(x=1).iterate('param')
+- Static parameter management: method.withparams(category='shoes').iterate('page', start=1, end=10)
+- Namespace conflict resolution: _prefixed parameters for iteration vs static parameter disambiguation
+- Direct specification: method.iterate('page', start=1, end=10, static={'category': 'shoes'})
++ Sequential Cycle Support: Advanced iteration patterns for complex API workflows
+- Primary parameter with nested cycles: iterate brands, complete all pages for each brand before advancing
+- Configurable cycle modes (SEQUENTIAL implemented, NESTED and PARALLEL deferred)
+- Cycle-specific error handling allowing granular control over iteration behavior
+- Reusable IterCycle objects for consistent iteration patterns across methods
++ Enhanced Payload Integration: Smart parameter extraction and iteration support
+- Payload.paramnames() convenience method for parameter introspection
+- Automatic payload parameter discovery in _collectiterables() for method-aware iteration
+- Enhanced SearchResource._generatesearchmethod() to include payload in MethodConfig
+- Parameter inference from Param metadata including mapping values/keys and choices
++ Infrastructure Improvements: Core enhancements supporting iteration functionality
+- MethodConfig.pathparams() convenience method for path parameter extraction
+- Pydantic configuration fixes with arbitrary_types_allowed for complex type support
+- Iterator state management ensuring reusable cycles across multiple primary iterations
+- Comprehensive type system with proper generics and protocol adherence
+
+**Use Cases**: API pagination automation, batch data processing, parameter space exploration, A/B testing different parameter combinations, marketplace search optimization
+
+**Deferred for Future Versions**:
+- Nested cycle mode (cartesian product iteration)
+- Offset/limit parameter detection for pagination APIs
+- Execution context tracking for break conditions and consecutive error analysis
+- Context managers for scoped parameter setting
+- Advanced break condition system with metadata tracking
+- Parallel cycle execution for concurrent processing
+
+**Breaking Changes**: None - all changes maintain backward compatibility
+
+**Performance Notes**: Iterator-based design ensures memory efficiency for large parameter spaces; cycle reusability prevents object recreation overhead
+
 ## [0.9.0] -- *2025-06-22*
 * Gateway Requests: Support for APIs accessed through proxy/gateway endpoints
 + GatewayBackend Implementation: Complete proxy request pattern support for API gateway architectures

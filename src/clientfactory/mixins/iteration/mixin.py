@@ -5,17 +5,18 @@ Iteration Mixin
 Mixin to add parameter iteration capabilities to bound methods.
 """
 from __future__ import annotations
-import enum, typing as t
+import time, typing as t
 from collections.abc import Iterator, Iterable
 
-from pydantic import BaseModel as PydModel, field_validator as fieldvalidator
 
 from clientfactory.core.models import Param, Payload, MethodConfig
 from clientfactory.mixins.iteration.comps import (
-    ErrorHandles, CycleModes, IterCycle, IterateCyclesType,
+    ErrorHandles, CycleModes, ErrorCallback,
+    IterCycle, IterateCyclesType,
     PAGEPARAMS, OFFSETPARAMS, LIMITPARAMS, ITERCONFIGS
 )
 
+from clientfactory.logs import log
 
 class IterMixin:
     """Mixin to add parameter iteration capabilities to bound methods."""
@@ -35,9 +36,9 @@ class IterMixin:
         stepfilter: t.Optional[t.Callable[[t.Any], bool]] = None,
         values: t.Optional[t.Iterable] = None,
         onerror: ErrorHandles = ErrorHandles.CONTINUE,
-        maxretries: int = 3,
+        maxretries: int = 0,
         retrydelay: float = 1.0,
-        errorcallback: t.Optional[t.Callable] = None,
+        errorcallback: t.Optional[ErrorCallback] = None,
         **kwargs
     ) -> IterCycle:
         """Create a reusable iteration cycle."""
@@ -99,6 +100,14 @@ class IterMixin:
         self._iterconfig.clear() # Clear instance iter config since we're using it
         return config, static
 
+    def _extractpayloadparams(self, source: t.Union[Payload, t.Type[Payload]]) -> set[str]:
+        """Extract parameter names from payload class/instance"""
+        payload = source() if isinstance(source, type) else source
+        if not isinstance(payload, Payload):
+            raise TypeError(f"")
+
+        return set(payload.paramnames())
+
 
     def _collectiterables(self) -> set[str]:
         """Collect all available parameters that could be iterated."""
@@ -116,8 +125,8 @@ class IterMixin:
 
                 # extract from payload if available
                 if methodconfig.payload:
-                    # TODO: extract param names from payload class
-                    pass
+                    payloadparams = self._extractpayloadparams(methodconfig.payload)
+                    params.update(payloadparams)
 
         return params
 
@@ -160,40 +169,80 @@ class IterMixin:
             case _:
                raise NotImplementedError()
 
+    def _executewithretry(self, call: t.Callable, cycle: IterCycle) -> t.Any:
+        """Execute a call with retry logic."""
+        print(f"IterMixin._executewithretry: Starting retry logic for {cycle.parameter}")
+        tries = 0
+
+        while (tries <= cycle.maxretries):
+            print(f"IterMixin._executewithretry: Attempt {tries + 1}/{cycle.maxretries + 1}")
+            try:
+                result = call()
+                print(f"IterMixin._executewithretry: Call succeeded, returning {result}")
+                return result
+            except Exception as e:
+                print(f"IterMixin._executewithretry: Call failed with {e}")
+                handle = self._errorhandle(cycle, e)
+                print(f"IterMixin._executewithretry: Error handle returned {handle}")
+                if handle is True:
+                    print(f"IterMixin._executewithretry: CONTINUE - raising exception")
+                    raise e
+                elif (handle is False) and (tries < cycle.maxretries):
+                    print(f"IterMixin._executewithretry: RETRY - incrementing tries and sleeping")
+                    tries += 1
+                    time.sleep(cycle.retrydelay)
+                    continue
+                elif callable(handle): # CALLBACK
+                    print(f"IterMixin._executewithretry: CALLBACK - calling error callback")
+                    shouldretry = handle(e, cycle)
+                    print(f"IterMixin._executewithretry: Callback returned {shouldretry}")
+                    if shouldretry and (tries < cycle.maxretries):
+                        tries += 1
+                        time.sleep(cycle.retrydelay)
+                        continue
+                    else:
+                        print(f"IterMixin._executewithretry: Max retries reached or callback said stop - raising")
+                        raise e
+                else:
+                    print(f"IterMixin._executewithretry: Unknown handle type - raising")
+                    raise e
+
     def _executecycles(self, primary: IterCycle, value: t.Any, cycles: IterateCyclesType, staticparams: dict) -> Iterator[t.Any]:
         """Execute all cycles for a single primary parameter value."""
+        print(f"IterMixin._executecycles: Starting cycles for primary={primary.parameter}:{value}")
+
         if not callable(self):
             raise TypeError(f"Object {type(self)} is not callable - cannot execute iteration")
-
 
         cyclelist = [cycles] if isinstance(cycles, IterCycle) else list(cycles)
 
         # sequential execution: complete each cycle before proceesing
         for cycle in cyclelist:
+            print(f"IterMixin._executecycles: Processing cycle {cycle.parameter}")
             for cvalue in cycle.generate():
-                try:
+                print(f"IterMixin._executecycles: Processing cycle value {cvalue}")
+                def call():
                     callkwargs = {
                         **staticparams,
                         primary.parameter: value,
                         cycle.parameter: cvalue
                     }
-                    result = self(**callkwargs)
+                    print(f"IterMixin._executecycles: About to call with {callkwargs}")
+                    return self(**callkwargs)
+                try:
+                    result = self._executewithretry(call, cycle)
+                    print(f"IterMixin._executecycles: Got result {result}")
                     yield result
                 except Exception as e:
                     handle = self._errorhandle(cycle, e)
                     if handle is True:
                         continue
-                    elif handle is False:
-                        pass # retry logic to be implemented
-                    elif callable(handle):
-                        pass # callback logic to be implemented
-                    # handle other handles
+                    else:
+                        raise
+        print(f"IterMixin._executecycles: Finished all cycles for primary={value}")
 
     def _iterate(self, primary: IterCycle, cycles: t.Optional[IterateCyclesType], cyclemode: CycleModes, **staticparams) -> Iterator[t.Any]:
         """Execute the iteration with cycles."""
-
-
-
         if cyclemode != CycleModes.SEQUENTIAL:
             raise NotImplementedError()
 
@@ -202,24 +251,30 @@ class IterMixin:
 
         # single parameter iteration
         for value in primary.generate():
+            print(f"IterMixin._iterate: processing primary value = {value}")
             if cycles is None:
-                try:
+                def call():
                     callkwargs = {**staticparams, primary.parameter: value}
-                    result = self(**callkwargs)
+                    return self(**callkwargs)
+                try:
+                    result = self._executewithretry(call, primary)
                     yield result
                 except Exception as e:
                     # handle based on error strategy
                     handle = self._errorhandle(primary, e)
                     if handle is True:
                         continue
-                    elif handle is False:
-                        pass # retry logic to be implemented
-                    elif callable(handle):
-                        pass # callback logic to be implemented
-                    # ...
+                    else:
+                        raise e # Re-raise for STOP, RETRY, CALLBACK (already handled in retry logic)
+                    # all other cases handled by retry logic
             else:
-                yield from self._executecycles(primary, value, cycles, staticparams)
-
+                print(f"IterMixin._iterate: Calling _executecycles for primary={value}")
+                try:
+                    yield from self._executecycles(primary, value, cycles, staticparams)
+                    print(f"IterMixin._iterate: Finished _executecycles for primary={value}")
+                except Exception as e:
+                    print(f"IterMixin._iterate: Exception in _executecycles for primary={value}: {e}")
+                    raise
     def iterate(
         self,
         param: t.Optional[t.Union[str, Param]] = None,

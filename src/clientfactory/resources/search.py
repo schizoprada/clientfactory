@@ -151,7 +151,8 @@ class SearchResource(Resource):
         methodconfig = MethodConfig(
             name=self.searchmethod,
             method=self.method,
-            path=self.path
+            path=self.path,
+            payload=self._getpayloadinstance()
         )
 
         bound = BoundMethod(searchmethod, self, methodconfig)

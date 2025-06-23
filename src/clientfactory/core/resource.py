@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 
 from clientfactory.core.bases import BaseResource
 from clientfactory.core.models import (
-    HTTPMethod, RequestModel, ResponseModel
+    HTTPMethod, RequestModel, ResponseModel, Payload
 )
 from clientfactory.logs import log
 
@@ -18,6 +18,15 @@ if t.TYPE_CHECKING:
 
 class Resource(BaseResource):
     """Standard concrete resource implementation"""
+
+    def _getpayloadinstance(self) -> t.Optional[Payload]:
+        """Get payload instance if any."""
+        payload = getattr(self, 'payload', None)
+        if payload is None:
+            return None
+        if isinstance(payload, type):
+            return payload()
+        return payload
 
     def _registermethod(self, method: t.Callable, name: t.Optional[str] = None) -> None:
         mname = (name or method.__name__)

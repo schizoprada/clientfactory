@@ -23,6 +23,8 @@ class CycleModes(str, enum.Enum):
     PARALLEL = "parallel" # future: concurrent
     # define more...
 
+ErrorCallback = t.Callable[[Exception, 'IterCycle'], bool]
+
 class IterCycle(PydModel):
     """A reusable iteration cycle configuration."""
     param: t.Union[str, Param]
@@ -34,7 +36,7 @@ class IterCycle(PydModel):
     onerror: ErrorHandles = ErrorHandles.CONTINUE
     maxretries: int = 3
     retrydelay: float = 1.0
-    errorcallback: t.Optional[t.Callable] = None
+    errorcallback: t.Optional[ErrorCallback] = None
 
     ## pydantic model configs ##
     model_config = {
@@ -133,10 +135,21 @@ class IterCycle(PydModel):
         raise ValueError(f"Numeric generation requires at least a 'start' or 'end'")
 
 
+    def _ensurereusable(self) -> None:
+        """Convert self.values to list to ensure re-usability"""
+        if (
+            self.values is not None and
+            hasattr(self.values, '__iter__') and
+            not isinstance(self.values, (list, tuple, str))
+        ):
+            self.values = list(self.values)
+
     def _generatefromvalues(self) -> Iterator[t.Any]:
         """Generate from explicit values as iterable."""
         if self.values is  None:
             raise ValueError(f"Cannot generate from values: NoneType")
+
+        self._ensurereusable()
 
         def applyfilter(value: t.Any) -> bool:
             if self.stepfilter:
@@ -155,9 +168,12 @@ class IterCycle(PydModel):
         else:
             yield from filtered
 
+
+
     def generate(self) -> Iterator[t.Any]:
         """Generate iteration values for this cycle."""
         if self.values is not None:
+
             yield from self._generatefromvalues()
             return
 

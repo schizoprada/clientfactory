@@ -330,6 +330,11 @@ class BoundPayload:
 
         return result
 
+    def paramnames(self) -> t.List[str]:
+        """List all paramater names registered in this payload."""
+        return list(self.boundto._boundfields.keys())
+
+
 class Payload(sex.Schema): #! PayloadProtocol removed
     """
     Abstract base class for request payload handling.
@@ -395,8 +400,6 @@ class Payload(sex.Schema): #! PayloadProtocol removed
             return self._typeconvert(result, typetarget)
         return result
 
-
-
     def bind(self, mapping: t.Dict[str, t.Any]) -> BoundPayload: # type: ignore
         boundschema = super().bind(mapping)
 
@@ -432,3 +435,7 @@ class Payload(sex.Schema): #! PayloadProtocol removed
     def getconfig(self) -> PayloadConfig:
         """Get payload configuration."""
         return self._config
+
+    def paramnames(self) -> t.List[str]:
+        """List all paramater names registered in this payload."""
+        return list(self._fields.keys())
