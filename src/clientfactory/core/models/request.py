@@ -277,6 +277,12 @@ class Param(sex.Field):
         **kwargs: t.Any
     ) -> None:
         """Initialize parameter with clientfactory extensions."""
+        preserve = {'mapping', 'mapper', 'keysaschoices', 'valuesaschoices', 'choices'}
+        kwargs.update({
+            attr: getattr(self.__class__, attr)
+            for attr in preserve
+            if (attr not in kwargs) and (getattr(self.__class__, attr, None) is not None)
+        })
         super().__init__(
             name=name,
             source=source,
@@ -301,6 +307,14 @@ class Param(sex.Field):
         # Call parent if it exists
         if hasattr(super(), '__set_name__'):
             super().__set_name__(owner, name) # type: ignore
+
+    def _availablevalues(self) -> list:
+        """Get available values for this parameter from its metadata."""
+        if self.mapping:
+            return list(self.mapping.keys())
+        if self.choices:
+            return list(self.choices)
+        return []
 
 class BoundPayload:
     """Payload bound to specific source mappings."""

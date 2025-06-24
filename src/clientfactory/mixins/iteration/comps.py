@@ -32,7 +32,7 @@ class IterCycle(PydModel):
     end: t.Optional[t.Any] = None
     step: t.Optional[t.Any] = None
     stepfilter: t.Optional[t.Callable[[t.Any], bool]] = None
-    values: t.Optional[t.Iterable] = None
+    values: t.Optional[t.Union[t.List[t.Any], t.Tuple[t.Any, ...]]] = None
     onerror: ErrorHandles = ErrorHandles.CONTINUE
     maxretries: int = 3
     retrydelay: float = 1.0
@@ -80,18 +80,18 @@ class IterCycle(PydModel):
         """Get the name of the parameter being cycled."""
         return self.param.name
 
-    def _infervalues(self) -> t.Optional[t.Iterable]:
+    def _infervalues(self) -> t.Optional[t.List]:
         """Infer iteration values from Param metadata."""
         if self.param.mapping:
             if self.param.valuesaschoices:
-                return self.param.mapping.values()
+                return list(self.param.mapping.values())
             elif self.param.keysaschoices:
-                return self.param.mapping.keys()
+                return list(self.param.mapping.keys())
             else:
-                return self.param.mapping.values()
+                return list(self.param.mapping.values())
 
         if self.param.choices:
-            return self.param.choices
+            return list(self.param.choices)
 
         return None
 

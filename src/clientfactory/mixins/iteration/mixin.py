@@ -144,24 +144,27 @@ class IterMixin:
 
     def _resolveparam(self, name: str) -> t.Optional[Param]:
         """Resolve string parameter name to actual param object"""
+
         methodconfig: t.Optional[MethodConfig] = getattr(self, '_methodconfig', None)
         if not methodconfig:
             return None
 
+
         def frompath(n: str):
             """Resolve parameter from path template."""
             if methodconfig.path:
-               pathparams = methodconfig.pathparams()
-               if n in pathparams:
-                   return Param(name=n, source=n, target=n) # simple dummy param for type consistency
+                pathparams = methodconfig.pathparams()
+                if n in pathparams:
+                    return Param(name=n, source=n, target=n)
             return None
 
         def frompayload(n: str):
             """Resolve parameter from payload."""
             if methodconfig.payload:
                 payload = methodconfig.payload() if isinstance(methodconfig.payload, type) else methodconfig.payload
-                if hasattr(payload, n):
-                    return getattr(payload, n)
+                if n in payload._fields:
+                    result = payload._fields[n]
+                    return result
             return None
 
         def getresolver():
@@ -176,7 +179,8 @@ class IterMixin:
             return lambda: frompayload(name)
 
         if (resolver:=getresolver()):
-            return resolver()
+            result = resolver()
+            return result
 
         return None
 
@@ -196,6 +200,7 @@ class IterMixin:
 
     def _resolvemapping(self, value: str, param: Param) -> t.Any:
         """Resolve string value via param mapping."""
+
         if not param.mapping:
             return None
 
@@ -205,7 +210,6 @@ class IterMixin:
             if param.keysaschoices:
                 return value
             return param.mapping[value]
-
 
 
         # strategy 2: check if values can be choices
@@ -221,16 +225,8 @@ class IterMixin:
 
     def _resolvecallable(self, call: t.Callable, param: Param) -> t.Any:
         """Resolve callable by evaluating against available values"""
-        def getavailable():
-            """Get available values for a parameter from its metadata."""
-            if param.mapping:
-                return list(param.mapping.keys())
-            if param.choices:
-                return list(param.choices)
-            return []
-
         #! we're making certain assumptions about the nature of this callable that we'll have to check back in on
-        matches = [v for v in getavailable() if call(v)]
+        matches = [v for v in param._availablevalues() if call(v)]
 
         if not matches:
             raise ValueError(f"Callable filter found no matching values for parameter '{param.name}'")
@@ -240,9 +236,40 @@ class IterMixin:
 
     def _resolvevalue(self, value: t.Any, param: Param, target: str) -> t.Any:
         """Main value resolution dispatcher."""
+        def valuestarget():
+            available = param._availablevalues()
+            listable = lambda v: isinstance(v, (range, set, frozenset)) or (hasattr(v, '__iter__') and hasattr(v, '__next__'))
+            # case 1: literal 'all'
+            if isinstance(value, str) and value.lower() == 'all':
+                    return available
+
+            # case 2: slice - subset of available
+            if isinstance(value, slice):
+                return available[value]
+
+            # case 3: listable - convert to list
+            if listable(value):
+                return list(value)
+
+            # case 4: dict - generator for truthy vals
+            if isinstance(value, dict):
+                return [k for k, v in value.items() if v]
+
+            # case 5:
+            if isinstance(value, (list, tuple)):
+                return [self._resolvevalue(v, param, 'element') for v in value]
+
+            return None # fallback to main resolution
+
         # if already a standard type, return as-is
         if value is None or isinstance(value, (int, float)):
             return value
+
+        # check if target is 'values' and handle if so
+        if target.lower() == 'values':
+            resolved = valuestarget()
+            if resolved is not None:
+                return resolved
 
         # strategy 1: mapping resolution
         if isinstance(value, str):
@@ -288,67 +315,49 @@ class IterMixin:
 
     def _executewithretry(self, call: t.Callable, cycle: IterCycle) -> t.Any:
         """Execute a call with retry logic."""
-        print(f"IterMixin._executewithretry: Starting retry logic for {cycle.parameter}")
         tries = 0
 
         while (tries <= cycle.maxretries):
-            print(f"IterMixin._executewithretry: Attempt {tries + 1}/{cycle.maxretries + 1}")
             try:
                 result = call()
-                print(f"IterMixin._executewithretry: Call succeeded, returning {result}")
                 return result
             except Exception as e:
-                print(f"IterMixin._executewithretry: Call failed with {e}")
                 handle = self._errorhandle(cycle, e)
-                print(f"IterMixin._executewithretry: Error handle returned {handle}")
                 if handle is True:
-                    print(f"IterMixin._executewithretry: CONTINUE - raising exception")
                     raise e
                 elif (handle is False) and (tries < cycle.maxretries):
-                    print(f"IterMixin._executewithretry: RETRY - incrementing tries and sleeping")
                     tries += 1
                     time.sleep(cycle.retrydelay)
                     continue
                 elif callable(handle): # CALLBACK
-                    print(f"IterMixin._executewithretry: CALLBACK - calling error callback")
                     shouldretry = handle(e, cycle)
-                    print(f"IterMixin._executewithretry: Callback returned {shouldretry}")
                     if shouldretry and (tries < cycle.maxretries):
                         tries += 1
                         time.sleep(cycle.retrydelay)
                         continue
                     else:
-                        print(f"IterMixin._executewithretry: Max retries reached or callback said stop - raising")
                         raise e
                 else:
-                    print(f"IterMixin._executewithretry: Unknown handle type - raising")
                     raise e
 
     def _executecycles(self, primary: IterCycle, value: t.Any, cycles: IterateCyclesType, staticparams: dict) -> Iterator[t.Any]:
         """Execute all cycles for a single primary parameter value."""
-        print(f"IterMixin._executecycles: Starting cycles for primary={primary.parameter}:{value}")
-
         if not callable(self):
             raise TypeError(f"Object {type(self)} is not callable - cannot execute iteration")
 
         cyclelist = [cycles] if isinstance(cycles, IterCycle) else list(cycles)
 
-        # sequential execution: complete each cycle before proceesing
         for cycle in cyclelist:
-            print(f"IterMixin._executecycles: Processing cycle {cycle.parameter}")
             for cvalue in cycle.generate():
-                print(f"IterMixin._executecycles: Processing cycle value {cvalue}")
                 def call():
                     callkwargs = {
                         **staticparams,
                         primary.parameter: value,
                         cycle.parameter: cvalue
                     }
-                    print(f"IterMixin._executecycles: About to call with {callkwargs}")
                     return self(**callkwargs)
                 try:
                     result = self._executewithretry(call, cycle)
-                    print(f"IterMixin._executecycles: Got result {result}")
                     yield result
                 except Exception as e:
                     handle = self._errorhandle(cycle, e)
@@ -356,7 +365,6 @@ class IterMixin:
                         continue
                     else:
                         raise
-        print(f"IterMixin._executecycles: Finished all cycles for primary={value}")
 
     def _iterate(self, primary: IterCycle, cycles: t.Optional[IterateCyclesType], cyclemode: CycleModes, **staticparams) -> Iterator[t.Any]:
         """Execute the iteration with cycles."""
@@ -368,7 +376,6 @@ class IterMixin:
 
         # single parameter iteration
         for value in primary.generate():
-            print(f"IterMixin._iterate: processing primary value = {value}")
             if cycles is None:
                 def call():
                     callkwargs = {**staticparams, primary.parameter: value}
@@ -385,12 +392,9 @@ class IterMixin:
                         raise e # Re-raise for STOP, RETRY, CALLBACK (already handled in retry logic)
                     # all other cases handled by retry logic
             else:
-                print(f"IterMixin._iterate: Calling _executecycles for primary={value}")
                 try:
                     yield from self._executecycles(primary, value, cycles, staticparams)
-                    print(f"IterMixin._iterate: Finished _executecycles for primary={value}")
                 except Exception as e:
-                    print(f"IterMixin._iterate: Exception in _executecycles for primary={value}: {e}")
                     raise
 
     ## Public Methods ##
