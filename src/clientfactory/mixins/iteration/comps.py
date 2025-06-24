@@ -27,7 +27,7 @@ ErrorCallback = t.Callable[[Exception, 'IterCycle'], bool]
 
 class IterCycle(PydModel):
     """A reusable iteration cycle configuration."""
-    param: t.Union[str, Param]
+    param: Param
     start: t.Optional[t.Any] = None
     end: t.Optional[t.Any] = None
     step: t.Optional[t.Any] = None
@@ -78,16 +78,10 @@ class IterCycle(PydModel):
     @property
     def parameter(self) -> str:
         """Get the name of the parameter being cycled."""
-        from clientfactory.core.models import Param
-        if isinstance(self.param, Param):
-            return self.param.name
-        return self.param
+        return self.param.name
 
     def _infervalues(self) -> t.Optional[t.Iterable]:
         """Infer iteration values from Param metadata."""
-        if not isinstance(self.param, Param):
-            return None
-
         if self.param.mapping:
             if self.param.valuesaschoices:
                 return self.param.mapping.values()
@@ -177,12 +171,11 @@ class IterCycle(PydModel):
             yield from self._generatefromvalues()
             return
 
-        if isinstance(self.param, Param):
-            inferred = self._infervalues()
-            if inferred is not None:
-                self.values = inferred
-                yield from self._generatefromvalues()
-                return
+        inferred = self._infervalues()
+        if inferred is not None:
+            self.values = inferred
+            yield from self._generatefromvalues()
+            return
 
         if (self.start is not None) and (self.end is not None):
             yield from self._generatenumeric()

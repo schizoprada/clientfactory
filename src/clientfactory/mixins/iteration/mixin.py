@@ -27,35 +27,8 @@ class IterMixin:
         self._staticparams: dict = {}
         self._iterconfig: dict = {}
 
-    def cycle(
-        self,
-        param: t.Union[str, Param],
-        start: t.Optional[t.Any] = None,
-        end: t.Optional[t.Any] = None,
-        step: t.Optional[t.Any] = None,
-        stepfilter: t.Optional[t.Callable[[t.Any], bool]] = None,
-        values: t.Optional[t.Iterable] = None,
-        onerror: ErrorHandles = ErrorHandles.CONTINUE,
-        maxretries: int = 0,
-        retrydelay: float = 1.0,
-        errorcallback: t.Optional[ErrorCallback] = None,
-        **kwargs
-    ) -> IterCycle:
-        """Create a reusable iteration cycle."""
-        return IterCycle(
-            param=param,
-            start=start,
-            end=end,
-            step=step,
-            stepfilter=stepfilter,
-            values=values,
-            onerror=onerror,
-            maxretries=maxretries,
-            retrydelay=retrydelay,
-            errorcallback=errorcallback,
-            **kwargs
-        )
-
+    ## Private Methods ##
+    ### Data Handling ###
     def _separatekwargs(self, static: t.Optional[t.Dict[str, t.Any]], **kwargs) -> tuple[dict, dict]:
         """
         Separate iteration configuration from static method parameters.
@@ -108,7 +81,6 @@ class IterMixin:
 
         return set(payload.paramnames())
 
-
     def _collectiterables(self) -> set[str]:
         """Collect all available parameters that could be iterated."""
 
@@ -130,21 +102,166 @@ class IterMixin:
 
         return params
 
-    def _discoverparam(self) -> t.Union[str, Param]:
+    def _discoverparam(self) -> str: # Return string since this is pre-normalization
         """Discover default iteration parameter following priority rules."""
         candidates = self._collectiterables()
 
+        find = lambda REF: next((param for param in list(REF) if param in candidates), None)
+
         # first priority: page/pagination
-        for param in list(PAGEPARAMS):
-            if param in candidates:
-               return param # we're only returning a string right now too
+        if (page:=find(PAGEPARAMS)):
+            return page
+
+        if (offset:=find(OFFSETPARAMS)):
+            return offset
+
+        raise ValueError(f"No suitable iteration parameter found in candidates: {candidates} -- Explicitly declare param to iter.")
+
+    def _findlimitvalue(self, offsetparam: str) -> t.Optional[int]:
+        """Find corresponding limit parameter value for offset iteration"""
+        candidates = self._collectiterables()
+        find = lambda opts: next((param for param in list(LIMITPARAMS) if param in opts), None)
+
+        if (static:=find(self._staticparams)):
+            return self._staticparams[static]
+
+        if (candid:=(find(candidates))):
+            limitparam = self._resolveparam(candid)
+            if limitparam and limitparam.default is not None:
+                return limitparam.default
+
+        return None
+
+    def _findstepvalue(self, param: Param, step: t.Optional[t.Any]) -> t.Optional[t.Any]:
+        """Auto-detect step value for offset/limit patterns."""
+        if step is not None:
+            return step
+
+        if (param.name in OFFSETPARAMS):
+            return self._findlimitvalue(param.name)
+
+        return step
+
+    def _resolveparam(self, name: str) -> t.Optional[Param]:
+        """Resolve string parameter name to actual param object"""
+        methodconfig: t.Optional[MethodConfig] = getattr(self, '_methodconfig', None)
+        if not methodconfig:
+            return None
+
+        def frompath(n: str):
+            """Resolve parameter from path template."""
+            if methodconfig.path:
+               pathparams = methodconfig.pathparams()
+               if n in pathparams:
+                   return Param(name=n, source=n, target=n) # simple dummy param for type consistency
+            return None
+
+        def frompayload(n: str):
+            """Resolve parameter from payload."""
+            if methodconfig.payload:
+                payload = methodconfig.payload() if isinstance(methodconfig.payload, type) else methodconfig.payload
+                if hasattr(payload, n):
+                    return getattr(payload, n)
+            return None
+
+        def getresolver():
+            if ('.' in name):
+                qualifier, paramname = name.split('.', 1)
+                if qualifier == 'payload':
+                    return lambda: frompayload(paramname)
+                elif qualifier == 'path':
+                    return lambda: frompath(paramname)
+                else:
+                    raise ValueError(f"Invalid qualifier '{qualifier}'. Use 'path' or 'payload' to specify iteration target.")
+            return lambda: frompayload(name)
+
+        if (resolver:=getresolver()):
+            return resolver()
+
+        return None
+
+    def _normalizeparam(self, param: t.Union[str, Param]) -> Param:
+        """Normalize parameter to Param object."""
+        if isinstance(param, Param):
+            return param
+
+        if isinstance(param, str):
+            if (obj:=self._resolveparam(param)):
+                return obj
+
+            # No fallback - if it cant be resolved, its invalid.
+            raise ValueError(f"Parameter '{param}' not found in method payload or path template")
+
+        raise TypeError(f"")
+
+    def _resolvemapping(self, value: str, param: Param) -> t.Any:
+        """Resolve string value via param mapping."""
+        if not param.mapping:
+            return None
 
 
-        # second priority: offset/limit
-        ## this one is tricky because we need to have both present to know for a fact its the "pagination" method for this API
-        ### TBD.
-        raise NotImplementedError()
+        # strategy 1: direct key lookup
+        if value in param.mapping:
+            if param.keysaschoices:
+                return value
+            return param.mapping[value]
 
+
+
+        # strategy 2: check if values can be choices
+        if param.valuesaschoices and value in list(param.mapping.values()):
+            return value
+
+        # strategy 3: check if we have a mapper function
+        if param.mapper:
+            return param.mapper(value)
+
+        # default None
+        return None
+
+    def _resolvecallable(self, call: t.Callable, param: Param) -> t.Any:
+        """Resolve callable by evaluating against available values"""
+        def getavailable():
+            """Get available values for a parameter from its metadata."""
+            if param.mapping:
+                return list(param.mapping.keys())
+            if param.choices:
+                return list(param.choices)
+            return []
+
+        #! we're making certain assumptions about the nature of this callable that we'll have to check back in on
+        matches = [v for v in getavailable() if call(v)]
+
+        if not matches:
+            raise ValueError(f"Callable filter found no matching values for parameter '{param.name}'")
+
+        # return first match for now, can sophisticate this later
+        return matches[0]
+
+    def _resolvevalue(self, value: t.Any, param: Param, target: str) -> t.Any:
+        """Main value resolution dispatcher."""
+        # if already a standard type, return as-is
+        if value is None or isinstance(value, (int, float)):
+            return value
+
+        # strategy 1: mapping resolution
+        if isinstance(value, str):
+            resolved = self._resolvemapping(value, param)
+            if resolved is not None:
+                return resolved
+
+        # strategy 2: callable evaluation
+        if callable(value):
+            return self._resolvecallable(value, param)
+
+        # strategy 3: recursive resolution
+        if isinstance(value, (list, tuple)):
+            return [self._resolvevalue(v, param, target) for v in value]
+
+        # default to value as-is if we cant resolve and let IterCycle handle
+        return value
+
+    ### Control Flow ###
     def _errorhandle(self, origin: IterCycle, exc: Exception) -> t.Union[bool, t.Callable]:
         """
         Handle error during iteration.
@@ -275,6 +392,39 @@ class IterMixin:
                 except Exception as e:
                     print(f"IterMixin._iterate: Exception in _executecycles for primary={value}: {e}")
                     raise
+
+    ## Public Methods ##
+    ### Core Methods ###
+    def cycle(
+        self,
+        param: t.Union[str, Param],
+        start: t.Optional[t.Any] = None,
+        end: t.Optional[t.Any] = None,
+        step: t.Optional[t.Any] = None,
+        stepfilter: t.Optional[t.Callable[[t.Any], bool]] = None,
+        values: t.Optional[t.Iterable] = None,
+        onerror: ErrorHandles = ErrorHandles.CONTINUE,
+        maxretries: int = 0,
+        retrydelay: float = 1.0,
+        errorcallback: t.Optional[ErrorCallback] = None,
+        **kwargs
+    ) -> IterCycle:
+        """Create a reusable iteration cycle."""
+        param = self._normalizeparam(param)
+        return IterCycle(
+            param=param,
+            start=self._resolvevalue(start, param, 'start'),
+            end=self._resolvevalue(end, param, 'end'),
+            step=self._findstepvalue(param, step),
+            stepfilter=stepfilter,
+            values=self._resolvevalue(values, param, 'values'),
+            onerror=onerror,
+            maxretries=maxretries,
+            retrydelay=retrydelay,
+            errorcallback=errorcallback,
+            **kwargs
+        )
+
     def iterate(
         self,
         param: t.Optional[t.Union[str, Param]] = None,
@@ -287,6 +437,8 @@ class IterMixin:
         if param is None:
             param = self._discoverparam()
 
+        param = self._normalizeparam(param)
+
         # Separate iteration config from static method parameters
         iterconfig, staticparams = self._separatekwargs(static, **kwargs)
 
@@ -298,7 +450,12 @@ class IterMixin:
 
         return self._iterate(primary, cycles, cyclemode, **staticparams)
 
+    ### Convenience Methods ###
+    def foreach(self, param: t.Union[str, Param], cycles: t.Optional[IterateCyclesType] = None, **kwargs) -> Iterator[t.Any]:
+        """Alias for iterate for chaining readability."""
+        return self.iterate(param, cycles=cycles, **kwargs)
 
+    ### Builder Methods ###
     def withparams(self, **params) -> 'IterMixin':
         """
         Add static parameters to this bound method.
@@ -316,11 +473,6 @@ class IterMixin:
         self._staticparams.update(params)
         return self
 
-
-    def foreach(self, param: t.Union[str, Param], cycles: t.Optional[IterateCyclesType] = None, **kwargs) -> Iterator[t.Any]:
-        """Alias for iterate for chaining readability."""
-        return self.iterate(param, cycles=cycles, **kwargs)
-
     def range(self, start: t.Any, end: t.Any, step: t.Optional[t.Any] = None) -> 'IterMixin':
         self._iterconfig.update({'start': start, 'end': end, 'step': step})
         return self
@@ -332,7 +484,6 @@ class IterMixin:
     def mode(self, cyclemode: CycleModes) -> 'IterMixin':
         self._iterconfig['cyclemode'] = cyclemode
         return self
-
 
 
     def __iter__(self, *args, **kwargs) -> Iterator[t.Any]:
