@@ -5,11 +5,22 @@ from __future__ import annotations
 import enum, typing as t
 from collections.abc import Iterator, Iterable
 
-from pydantic import BaseModel as PydModel, field_validator as fieldvalidator
+from pydantic import (
+    BaseModel as PydModel,
+    field_validator as fieldvalidator,
+    computed_field as computedfield,
+    Field)
 
 from clientfactory.core.models import Param, Payload, MethodConfig
+from clientfactory.core.bases.condition import ContextualCondition
 
 
+## type hints ##
+ErrorCallback = t.Callable[[Exception, 'IterCycle'], bool]
+
+IterateCyclesType = t.Union['IterCycle', t.Tuple['IterCycle', ...], t.List['IterCycle']] # should expand probably
+
+## enums ##
 
 class ErrorHandles(str, enum.Enum):
     CONTINUE = "continue"
@@ -18,12 +29,153 @@ class ErrorHandles(str, enum.Enum):
     CALLBACK = "callback"
 
 class CycleModes(str, enum.Enum):
-    SEQUENTIAL = "sequential"
-    NESTED = "nested" # cartesian product
-    PARALLEL = "parallel" # future: concurrent
+    SEQ = "sequential"
+    PROD = "nested" # cartesian product
+    PARA = "parallel" # future: concurrent
     # define more...
 
-ErrorCallback = t.Callable[[Exception, 'IterCycle'], bool]
+## core ##
+
+class CycleBreak(ContextualCondition):
+    """"""
+    def __init__(
+        self,
+        evalfunc: t.Callable[[dict, t.Any], bool],
+        name: t.Optional[str] = None,
+        description: str = "",
+        **kwargs
+    ) -> None:
+        """"""
+        self.evalfunc = evalfunc
+        self.name = (name or self.__class__.__name__)
+        self.description = description
+        self._kwargs = kwargs
+
+    def __repr__(self) -> str:
+        return f"CycleBreak[{self.name}]({self.description or 'custom condition'})"
+
+    def evaluate(self, context: dict, result: t.Any = None, *args, **kwargs) -> bool:
+        should = self.evalfunc(context, result)
+        print(f"""
+            CycleBreak[{self.name}].evaluate
+            -------------------
+            received:
+                context = {context}
+                result = {result}
+
+            result:
+                {should}
+            """)
+        return should
+
+    @classmethod
+    def ConsecutiveErrors(cls, max: int) -> 'CycleBreak':
+        """
+        Create break condition for consecutive error limit.
+
+        Args:
+            max: Maximum number of consecutive errors before breaking
+
+        Returns:
+            CycleBreak: Condition that breaks after consecutive error threshold
+        """
+        def check(context: dict, result: t.Any) -> bool:
+            return context.get('errors', {}).get('consecutive', 0) >= max #! revise
+
+        return cls(check, 'ConsecutiveErrors', f"Break after {max} consecutive errors")
+
+    @classmethod
+    def When(cls, predicate: t.Callable[[t.Any], bool], description: str = "") -> 'CycleBreak':
+        """
+        Create break condition based on result predicate.
+
+        Args:
+            predicate: Function that takes result and returns bool
+            description: Optional description of the condition
+
+        Returns:
+            CycleBreak: Condition that breaks when predicate returns True
+        """
+        def check(context: dict, result: t.Any) -> bool:
+            return predicate(result) if result is not None else False #! revise
+
+        desc = (description or "Break when predicate satisfied")
+        return cls(check, 'When', desc)
+
+    @classmethod
+    def Callback(cls, call: t.Callable[[dict, t.Any], bool], description: str = "") -> 'CycleBreak':
+        """
+        Create break condition with custom callback logic.
+
+        Args:
+            call: Custom function taking (context, result) returning bool
+            description: Optional description of the condition
+
+        Returns:
+            CycleBreak: Condition using custom callback logic
+        """
+        desc = (description or "Break with custom callback")
+        return cls(call, 'Callback', desc)
+
+
+class ErrorContext(PydModel):
+    history: list = Field(default_factory=list)
+    consecutive: int = 0
+
+    def adderror(self, error: t.Union[str, Exception], increment: bool = False) -> None:
+        self.history.append(error)
+        if increment:
+            self.consecutive += 1
+
+    def increment(self, n: int = 1) -> None:
+        if n < 1:
+            return
+        self.consecutive += n
+
+    def clearcount(self) -> None:
+        self.consecutive = 0
+
+    @computedfield
+    def total(self) -> int:
+        return len(self.history)
+
+    def todict(self) -> dict:
+        return self.model_dump()
+
+    def reset(self) -> None:
+        """Reset all values"""
+        self.history.clear()
+        self.clearcount()
+
+class IterContext(PydModel):
+    errors: ErrorContext = Field(default_factory=ErrorContext)
+    results: t.List = Field(default_factory=list)
+    iterations: int = 0
+    storeresults: bool = False # opt in
+
+    def addresult(self, result: t.Optional[t.Any] = None) -> None:
+        """Add successful result and clear consecutive errors."""
+        if self.storeresults and result:
+            self.results.append(result)
+        else:
+            self.results.append(True) # placeholder
+        self.iterations += 1
+        self.errors.clearcount() # success means break in consecutive
+
+    def adderror(self, error: t.Union[str, Exception]) -> None:
+        """Add error and increment counts."""
+        self.errors.adderror(error, increment=True)
+
+    def todict(self) -> dict:
+        return self.model_dump()
+
+    def reset(self, storeresults: bool = False) -> None:
+        """Reset all values"""
+        self.errors.reset()
+        self.results.clear()
+        self.iterations = 0
+        self.storeresults = storeresults
+
 
 class IterCycle(PydModel):
     """A reusable iteration cycle configuration."""
@@ -184,7 +336,7 @@ class IterCycle(PydModel):
         raise ValueError(f"Cycle({self.parameter}) requires either 'values' or 'start/end'")
 
 
-IterateCyclesType = t.Union[IterCycle, t.Tuple[IterCycle, ...], t.List[IterCycle]] # should expand probably
+## consts ##
 
 PAGEPARAMS: set[str]  = {'page', 'pagenum', 'pagenumber', 'pageno', 'pagination', 'p'} # expand potentially
 OFFSETPARAMS: set[str] = {'offset', 'start', 'skip'} # expand potentially

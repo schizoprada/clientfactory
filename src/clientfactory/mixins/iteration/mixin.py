@@ -5,14 +5,15 @@ Iteration Mixin
 Mixin to add parameter iteration capabilities to bound methods.
 """
 from __future__ import annotations
-import time, typing as t
+import time, typing as t, itertools as it
 from collections.abc import Iterator, Iterable
 
 
 from clientfactory.core.models import Param, Payload, MethodConfig
 from clientfactory.mixins.iteration.comps import (
     ErrorHandles, CycleModes, ErrorCallback,
-    IterCycle, IterateCyclesType,
+    IterCycle, IterateCyclesType, IterContext,
+    CycleBreak,
     PAGEPARAMS, OFFSETPARAMS, LIMITPARAMS, ITERCONFIGS
 )
 
@@ -26,6 +27,7 @@ class IterMixin:
         super().__init__(*args, **kwargs)
         self._staticparams: dict = {}
         self._iterconfig: dict = {}
+        self._iterctx: IterContext = IterContext()
 
     ## Private Methods ##
     ### Data Handling ###
@@ -176,7 +178,7 @@ class IterMixin:
                     return lambda: frompath(paramname)
                 else:
                     raise ValueError(f"Invalid qualifier '{qualifier}'. Use 'path' or 'payload' to specify iteration target.")
-            return lambda: frompayload(name)
+            return lambda: frompayload(name) if methodconfig.payload is not None else frompath(name)
 
         if (resolver:=getresolver()):
             result = resolver()
@@ -200,7 +202,6 @@ class IterMixin:
 
     def _resolvemapping(self, value: str, param: Param) -> t.Any:
         """Resolve string value via param mapping."""
-
         if not param.mapping:
             return None
 
@@ -313,6 +314,26 @@ class IterMixin:
             case _:
                raise NotImplementedError()
 
+
+    def _shouldbreak(self, breaks: t.List[CycleBreak], result: t.Any = None) -> bool:
+        """Check if any break condition is met."""
+
+        if not breaks:
+
+            return False
+
+        context = self._iterctx.todict()
+
+        for i, condition in enumerate(breaks):
+            should = condition.evaluate(context, result)
+
+            if should:
+
+                return True
+
+        return False
+
+    #### Executors ####
     def _executewithretry(self, call: t.Callable, cycle: IterCycle) -> t.Any:
         """Execute a call with retry logic."""
         tries = 0
@@ -320,8 +341,14 @@ class IterMixin:
         while (tries <= cycle.maxretries):
             try:
                 result = call()
+
+                self._iterctx.addresult(result)
+
                 return result
             except Exception as e:
+
+                self._iterctx.adderror(e)
+
                 handle = self._errorhandle(cycle, e)
                 if handle is True:
                     raise e
@@ -340,7 +367,44 @@ class IterMixin:
                 else:
                     raise e
 
-    def _executecycles(self, primary: IterCycle, value: t.Any, cycles: IterateCyclesType, staticparams: dict) -> Iterator[t.Any]:
+    def _executewithbreaks(self, call: t.Callable, cycle: IterCycle, breaks: t.List[CycleBreak]) -> t.Tuple[t.Any, bool]:
+        """
+        Execute call with break condition checking.
+
+        Returns:
+            tuple: (result, should)
+        """
+        print(f"EXEC: Checking breaks BEFORE call")
+        # check breaks BEFORE call for context-based conditions
+        if self._shouldbreak(breaks, None):
+            print(f"EXEC: BREAKING BEFORE CALL")
+            return None, True
+
+        try:
+            print(f"EXEC: Making call...")
+            result = self._executewithretry(call, cycle)
+            print(f"EXEC: Call succeeded, result={result}")
+            # check immediately after success
+            print(f"EXEC: Checking breaks AFTER call with result={result}")
+            if (should:=self._shouldbreak(breaks, result)):
+                print(f"EXEC: Should={should}, result={result}")
+                return result, True
+            print(f"EXEC: Should={should}, result={result}")
+            return result, False
+
+        except Exception as e:
+            # check breaks FIRST
+            if self._shouldbreak(breaks, e):
+                return None, True
+
+            # do error handling
+            handle = self._errorhandle(cycle, e)
+            if handle is True:
+                return None, False # continue
+            else:
+                raise # re-raise
+
+    def _executecycles(self, primary: IterCycle, value: t.Any, cycles: IterateCyclesType, staticparams: dict, breaks: t.List[CycleBreak]) -> Iterator[t.Any]:
         """Execute all cycles for a single primary parameter value."""
         if not callable(self):
             raise TypeError(f"Object {type(self)} is not callable - cannot execute iteration")
@@ -356,46 +420,93 @@ class IterMixin:
                         cycle.parameter: cvalue
                     }
                     return self(**callkwargs)
-                try:
-                    result = self._executewithretry(call, cycle)
+                result, breakout = self._executewithbreaks(call, cycle, breaks)
+                print(f"EXEC(Cycles): result={result}, breakout={breakout}")
+                if result is not None:
+                    print(f"EXEC(Cycles): yielding={result}")
                     yield result
-                except Exception as e:
-                    handle = self._errorhandle(cycle, e)
-                    if handle is True:
-                        continue
-                    else:
-                        raise
+                if breakout:
+                    return
 
-    def _iterate(self, primary: IterCycle, cycles: t.Optional[IterateCyclesType], cyclemode: CycleModes, **staticparams) -> Iterator[t.Any]:
-        """Execute the iteration with cycles."""
-        if cyclemode != CycleModes.SEQUENTIAL:
-            raise NotImplementedError()
-
+    #### Iteration Modes ####
+    def _iterseq(self, primary: IterCycle, cycles: t.Optional[IterateCyclesType], breaks: t.List[CycleBreak], **staticparams) -> Iterator[t.Any]:
+        """Execute SEQ iteration."""
         if not callable(self):
             raise TypeError(f"Object {type(self)} is not callable - cannot execute iteration")
 
         # single parameter iteration
         for value in primary.generate():
             if cycles is None:
+                if self._shouldbreak(breaks):
+                    return
                 def call():
                     callkwargs = {**staticparams, primary.parameter: value}
                     return self(**callkwargs)
-                try:
-                    result = self._executewithretry(call, primary)
+                result, breakout = self._executewithbreaks(call, primary, breaks)
+                print(f"ITER(Seq): result={result}, breakout={breakout}")
+                if result is not None:
+                    print(f"ITER(Seq): yielding={result}")
                     yield result
-                except Exception as e:
-                    # handle based on error strategy
-                    handle = self._errorhandle(primary, e)
-                    if handle is True:
-                        continue
-                    else:
-                        raise e # Re-raise for STOP, RETRY, CALLBACK (already handled in retry logic)
-                    # all other cases handled by retry logic
+                if breakout:
+                    return
             else:
                 try:
-                    yield from self._executecycles(primary, value, cycles, staticparams)
+                    yield from self._executecycles(primary, value, cycles, staticparams, breaks)
                 except Exception as e:
                     raise
+
+    def _iterprod(self, primary: IterCycle, cycles: t.Optional[IterateCyclesType], breaks: t.List[CycleBreak], **staticparams) -> Iterator[t.Any]:
+        """Execute PROD (cartesian product) iteration."""
+        if not callable(self):
+            raise TypeError(f"Object {type(self)} is not callable - cannot execute iteration")
+
+        if cycles is None: # no cycles = no product, just iterate the primary as usual
+            return self._iterseq(primary, cycles, breaks, **staticparams)
+
+        # get list of cycles
+        cyclelist = [cycles] if isinstance(cycles, IterCycle) else list(cycles)
+
+        # generate all values
+        primaryvals = list(primary.generate())
+        cyclicvals = [list(cycle.generate()) for cycle in cyclelist]
+
+        # cartesian product
+        combos = it.product(primaryvals, *cyclicvals)
+        for combo in combos:
+            if self._shouldbreak(breaks):
+                return
+            pval = combo[0]
+            cvals = combo[1:]
+
+            def call():
+                callkwargs = {**staticparams, primary.parameter: pval}
+                for i, cycle in enumerate(cyclelist):
+                    callkwargs[cycle.parameter] = cvals[i]
+                return self(**callkwargs)
+
+            result, breakout = self._executewithbreaks(call, primary, breaks)
+            print(f"ITER(Prod): result={result}, breakout={breakout}")
+            if result is not None:
+                print(f"ITER(Prod): yielding={result}")
+                yield result
+            if breakout:
+                return
+
+    def _iterate(self, primary: IterCycle, cycles: t.Optional[IterateCyclesType], mode: CycleModes, breaks: t.Optional[t.List[CycleBreak]] = None, **staticparams) -> Iterator[t.Any]:
+        """Execute the iteration with cycles."""
+        if not callable(self):
+            raise TypeError(f"Object {type(self)} is not callable - cannot execute iteration")
+
+        breaks = (breaks or [])
+        match mode:
+            case CycleModes.SEQ:
+                return self._iterseq(primary, cycles, breaks, **staticparams)
+            case CycleModes.PROD:
+                return self._iterprod(primary, cycles, breaks, **staticparams)
+            case CycleModes.PARA:
+                raise NotImplementedError()
+            case _:
+                raise ValueError(f"Invalid iteration mode '{mode.value if isinstance(mode, CycleModes) else mode}', options: {[m.value for m in CycleModes]}")
 
     ## Public Methods ##
     ### Core Methods ###
@@ -433,11 +544,15 @@ class IterMixin:
         self,
         param: t.Optional[t.Union[str, Param]] = None,
         cycles: t.Optional[IterateCyclesType] = None,
-        cyclemode: CycleModes = CycleModes.SEQUENTIAL,
+        mode: CycleModes = CycleModes.SEQ,
         static: t.Optional[t.Dict[str, t.Any]] = None,
+        store: bool = False,
+        breaks: t.Optional[t.Iterable[CycleBreak]] = None,
         **kwargs
     ) -> Iterator[t.Any]:
         """Main iteration with optional cycles."""
+        # reset context for each call
+        self._iterctx.reset(storeresults=store)
         if param is None:
             param = self._discoverparam()
 
@@ -452,7 +567,8 @@ class IterMixin:
 
         primary = self.cycle(param, **iterconfig)
 
-        return self._iterate(primary, cycles, cyclemode, **staticparams)
+        breaks = list(breaks) if breaks else []
+        return self._iterate(primary, cycles, mode, breaks, **staticparams)
 
     ### Convenience Methods ###
     def foreach(self, param: t.Union[str, Param], cycles: t.Optional[IterateCyclesType] = None, **kwargs) -> Iterator[t.Any]:

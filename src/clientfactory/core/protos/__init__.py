@@ -3,6 +3,7 @@
 """
 from .auth import AuthProtocol
 from .backend import BackendProtocol
+from .condition import ConditionProtocol
 from .payload import PayloadProtocol
 from .persistence import PersistenceProtocol
 from .request import (
@@ -12,6 +13,7 @@ from .request import (
 __all__ = [
     'AuthProtocol',
     'BackendProtocol',
+    'ConditionProtocol',
     'PayloadProtocol',
     'RequestEngineProtocol',
     'SessionProtocol',
