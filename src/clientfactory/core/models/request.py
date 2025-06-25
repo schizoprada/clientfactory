@@ -291,19 +291,25 @@ class Param(sex.Field):
     ) -> None:
         """Initialize parameter with clientfactory extensions."""
         # apply real defaults for unset values
-        for pname, dvalue in self.__class__.__defaults__.items():
-            if locals()[pname] is _UNSET:
-                locals()[pname] = dvalue
+        explicit = set()
+        locs = locals().copy()
+        for pname, dvalue in self.__defaults__.items():
+            if (pname in locs) and (locs[pname] is _UNSET):
+                locs[pname] = dvalue
+            else:
+                explicit.add(pname)
+        explicit.update(kwargs.keys())
 
         # resolve class attrs before calling super
         shouldresolve = lambda key: (key not in ('self', 'kwargs', 'shouldresolve')) and (not key.startswith('_'))
-        resolvable = {k:v for k, v in locals().items() if (v is not _UNSET) and shouldresolve(k)}
+        resolvable = {k:v for k, v in locs.items() if (v is not _UNSET) and shouldresolve(k)}
         resolved = self._resolveclassattrs(**resolvable)
         super().__init__(
             **resolved
         )
-        self.allownone: bool = allownone
-        self._explicit: dict = resolvable # store explicit params for use in __rshift__/__lshift__
+        self.allownone: bool = locs['allownone']
+        self._explicit: set = explicit # store explicit params for use in __rshift__/__lshift__
+        self._initializedwith['allownone'] = allownone
 
     def _resolveclassattrs(self, **resolve) -> t.Dict[str, t.Any]:
         """
@@ -382,6 +388,12 @@ class Param(sex.Field):
             return list(self.choices)
         return []
 
+    def _getoriginalvalue(self, attr: str) -> t.Any:
+        """Get the original value before BaseField mangled it."""
+        if attr in self._explicit:
+            return self._initializedwith[attr]
+        return self.__defaults__[attr]
+
     def __rshift__(self, other: 'Param') -> 'Param': # pyright: ignore[reportIncompatibleMethodOverride]
         """
         Override with other's explicit values only.
@@ -389,18 +401,44 @@ class Param(sex.Field):
         Usage: base >> override
         Result: base values, but override with other's explicitly set values
         """
-        # Get self's explicit values (if we tracked them)
-        # For now, get all non-None values from self
+        # Start with ALL of self's values
         new = {
-            attr: getattr(self, attr, self.__class__.__defaults__[attr])
-            for attr in self.__class__.__defaults__.keys()
-            if getattr(self, attr, None) is not None
+            attr: self._getoriginalvalue(attr) for attr in self.__defaults__.keys()
         }
+
+        print(f"""
+            DEBUG
+            Param.__rshift__
+            -----------------
+               new:
+                   {new}
+
+               other._explicit:
+                    {other._explicit}
+            """)
+
+        updates = {
+            attr: other._getoriginalvalue(attr) for attr in other._explicit
+        }
+
+        print(f"""
+            DEBUG
+            Param.__rshift__
+            -----------------
+               updates:
+                   {updates}
+            """)
+
         # Override with other's explicit values only
-        new.update({
-            attr: getattr(other, attr, other.__class__.__defaults__[attr])
-            for attr in other._explicit
-        })
+        new.update(updates)
+
+        print(f"""
+            DEBUG
+            Param.__rshift__
+            -----------------
+               new(final):
+                   {new}
+            """)
 
         return Param(**new)
 
@@ -413,18 +451,42 @@ class Param(sex.Field):
         """
         # Get all non-None values from other
         new = {
-            attr: getattr(other, attr, other.__class__.__defaults__[attr])
-            for attr in other.__class__.__defaults__.keys()
-            if getattr(other, attr, None) is not None
+            attr: other._getoriginalvalue(attr)
+            for attr in other.__defaults__.keys()
         }
+        print(f"""
+            DEBUG
+            Param.__lshift__
+            -----------------
+               new:
+                   {new}
 
-        # Override with self's non-None values (self takes precedence)
-        new.update({
-            attr: getattr(self, attr, self.__class__.__defaults__[attr])
-            for attr in self.__class__.__defaults__.keys()
-            if getattr(self, attr, None) is not None
-        })
+               other._explicit:
+                    {other._explicit}
+            """)
 
+        updates = {
+            attr: self._getoriginalvalue(attr)
+            for attr in self._explicit
+        }
+        print(f"""
+            DEBUG
+            Param.__lshift__
+            -----------------
+               updates:
+                   {updates}
+            """)
+
+        # Override with ALL of selfs values
+        new.update(updates)
+        print(f"""
+            DEBUG
+            Param.__lshift__
+            -----------------
+               new(final):
+                   {new}
+            """)
+        final = {k:v for k,v in new.items() if v is not None}
         return Param(**new)
 
 class BoundPayload:
