@@ -274,9 +274,11 @@ class Param(sex.Field):
         default: t.Any = None,
         transform: t.Optional[t.Callable] = None,
         allownone: bool = True,
+        #! UPDATE TO MATCH BaseField.__init__ signature
         **kwargs: t.Any
     ) -> None:
         """Initialize parameter with clientfactory extensions."""
+        #! FIND ANOTHER WAY TO RESOLVE FROM CLASS ATTRIBUTES AFTER UPDATING SIGNATURE
         preserve = {'mapping', 'mapper', 'keysaschoices', 'valuesaschoices', 'choices'}
         kwargs.update({
             attr: getattr(self.__class__, attr)
@@ -315,6 +317,8 @@ class Param(sex.Field):
         if self.choices:
             return list(self.choices)
         return []
+
+    #! OVERRIDE RSHIFT & LSHIFT
 
 class BoundPayload:
     """Payload bound to specific source mappings."""

@@ -56,16 +56,6 @@ class CycleBreak(ContextualCondition):
 
     def evaluate(self, context: dict, result: t.Any = None, *args, **kwargs) -> bool:
         should = self.evalfunc(context, result)
-        print(f"""
-            CycleBreak[{self.name}].evaluate
-            -------------------
-            received:
-                context = {context}
-                result = {result}
-
-            result:
-                {should}
-            """)
         return should
 
     @classmethod
@@ -117,6 +107,23 @@ class CycleBreak(ContextualCondition):
         desc = (description or "Break with custom callback")
         return cls(call, 'Callback', desc)
 
+    @classmethod
+    def StatusCode(cls, predicate: t.Callable[[int], bool], description: str = "") -> 'CycleBreak':
+        def check(context: dict, result: t.Any) -> bool:
+            code = getattr(result, 'statuscode', getattr(result, 'status_code', None)) # safety check 'status_code' just in case
+            if code is not None:
+                return predicate(code)
+            return False
+        desc = (description or "Break on status code condition")
+        return cls(check, desc)
+
+    @classmethod
+    def BadRequest(cls) -> 'CycleBreak':
+        notok = lambda status: status < 200 or status >= 300
+        description = ""
+        return cls.StatusCode(notok, description)
+
+    # should make one for consecutive bad requests
 
 class ErrorContext(PydModel):
     history: list = Field(default_factory=list)

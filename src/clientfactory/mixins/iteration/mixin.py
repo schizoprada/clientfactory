@@ -117,6 +117,16 @@ class IterMixin:
         if (offset:=find(OFFSETPARAMS)):
             return offset
 
+        #! TODO:
+        # handle single-param paths for automatic discovery for convenience
+        # e.g.
+        """
+        @get("{id}")
+        def method: pass
+
+        method.iterate(range(1, 11)) -- this should work, if theres no payload and the path only has one param
+        """
+
         raise ValueError(f"No suitable iteration parameter found in candidates: {candidates} -- Explicitly declare param to iter.")
 
     def _findlimitvalue(self, offsetparam: str) -> t.Optional[int]:
@@ -539,6 +549,8 @@ class IterMixin:
             errorcallback=errorcallback,
             **kwargs
         )
+
+
 
     def iterate(
         self,

@@ -1,5 +1,60 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.2] -- *2025-06-24*
+* Advanced Iteration Framework: Comprehensive multi-cycle execution with conditional control and intelligent parameter resolution
++ Enhanced Parameter Discovery & Resolution: Complete offset/limit pagination detection with qualified parameter targeting
+- Automatic offset/limit pattern detection with step auto-calculation for seamless pagination workflows
+- Qualified parameter names (`path.brand`, `payload.brand`) for explicit resolution of naming conflicts
+- Enhanced parameter normalization pipeline converting string references to rich Param objects with metadata preservation
+- **CRITICAL FIX**: Param constructor preservation of class attributes (mapping, keysaschoices, etc.) preventing instance overwrites
+- Fallback resolution strategy: payload-first with path fallback when no payload exists for robust parameter discovery
++ Advanced Parameter Inference: Sophisticated value resolution for complex iteration scenarios
+- String-to-mapping resolution with strategy exhaustion: direct lookup, keys-as-choices, values-as-choices, mapper functions
+- Callable parameter filtering with evaluation against available parameter values for dynamic iteration ranges
+- Enhanced `values` parameter resolution: `'all'` expansion, slice notation, range objects, set conversion, dict filtering
+- Recursive value resolution for nested parameter lists with context-aware processing
+- **INTEGRATION FIX**: Pydantic ValidatorIterator handling for seamless values parameter processing
++ Cartesian Product Iteration: Multi-dimensional parameter space exploration with PROD cycle mode
+- `CycleModes.PROD` implementation enabling full cartesian product iteration across parameter combinations
+- Extracted `_iterseq()` and `_iterprod()` methods with unified `_iterate()` dispatcher using match/case patterns
+- Support for complex multi-cycle scenarios: brands × sizes × colors with comprehensive combination coverage
+- Maintained backward compatibility with existing sequential (`CycleModes.SEQ`) iteration patterns
++ Universal Condition System: Library-wide conditional logic framework with composition capabilities
+- `BaseCondition` and `ContextualCondition` abstract base classes with Protocol support for duck typing
+- Condition composition operators (`&`, `|`) enabling complex conditional logic: `condition1 & condition2`, `condition1 | condition2`
+- `CompositeCondition` implementation with short-circuit evaluation and `LogicalOperator` enum for extensible logic operations
+- Clean inheritance hierarchy supporting specialized condition implementations across different library components
++ Execution Context Tracking: Comprehensive iteration state management with error analysis and result tracking
+- `IterContext` and `ErrorContext` models providing detailed execution metadata and error pattern analysis
+- Consecutive error tracking with automatic reset on successful operations for robust failure pattern detection
+- Optional result storage (`store=True`) with memory-efficient placeholder system for large iteration sets
+- Context reset on each iteration call with configurable result storage for isolated execution environments
++ Break Condition Framework: Sophisticated iteration control with HTTP-aware and custom break logic
+- `CycleBreak` condition system with factory methods: `ConsecutiveErrors()`, `When()`, `Callback()`, `StatusCode()`
+- HTTP status code break conditions with safety checks supporting both `statuscode` and `status_code` attributes
+- `BadRequest()` shortcut for immediate breaking on non-2xx HTTP responses
+- Unified `_executewithbreaks()` execution pipeline with pre-call and post-call break condition evaluation
+- **CRITICAL FIX**: Variable shadowing resolution in break condition evaluation preventing condition bypass
++ Enhanced Integration Architecture: Seamless integration of advanced features with existing iteration infrastructure
+- Context tracking integration throughout execution pipeline with automatic result/error recording
+- Break condition checking at strategic points: before calls (context-based) and after calls (result-based)
+- Yield-then-break execution pattern ensuring results are returned before iteration termination
+- Comprehensive parameter resolution pipeline supporting all iteration modes (SEQ, PROD) with consistent behavior
+
+**Use Cases**: Complex API pagination with intelligent parameter detection, multi-dimensional marketplace search optimization, HTTP response monitoring with automatic error handling, conditional iteration control for rate limiting and failure scenarios
+
+**Breaking Changes**: None - all enhancements maintain full backward compatibility with existing iteration patterns
+
+**Performance Improvements**: Short-circuit condition evaluation, memory-efficient result tracking, optimized parameter resolution caching
+
+**Developer Experience**: Extensive test coverage (33 passing tests), comprehensive error messages, intelligent parameter discovery reducing boilerplate configuration
+
+**Deferred for 0.9.3**:
+- Context managers for scoped parameter utilization (`with method.params(...)`)
+- `ConsecutiveBadRequests()` break condition requiring enhanced HTTP response tracking
+- Parallel cycle execution (`CycleModes.PARA`) with thread-based concurrent processing
+- Advanced break condition metadata and performance tracking
+
 ## [0.9.1] -- *2025-06-23*
 * Smart Requesting Utilities: Advanced parameter iteration with comprehensive cycle support and error handling
 + Parameter Iteration Framework: Complete system for iterating over method parameters with multi-pattern support
