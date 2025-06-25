@@ -5,7 +5,7 @@ Request and Response Models
 Core data structures for HTTP requests and responses using Pydantic.
 """
 from __future__ import annotations
-import typing as t
+import inspect, typing as t
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from pydantic import (
@@ -257,6 +257,8 @@ class ResponseModel(PydModel):
             request=request
         )
 
+_UNSET: t.Any = object() # Sentinel for Param defaults
+
 class Param(sex.Field):
     """
     ClientFactory parameter built on schematix Field.
@@ -264,37 +266,99 @@ class Param(sex.Field):
     Extends schematix field capabilities with clientfactory-specific
     functionality for API parameter handling.
     """
+    __defaults__ = {**sex.Field.__defaults__, 'allownone': True}
 
     def __init__(
         self,
-        name: t.Optional[str] = None,
-        source: t.Optional[str] = None,
-        target: t.Optional[str] = None,
-        required: bool = False,
-        default: t.Any = None,
-        transform: t.Optional[t.Callable] = None,
-        allownone: bool = True,
-        #! UPDATE TO MATCH BaseField.__init__ signature
+        name: t.Optional[str] = _UNSET,
+        source: t.Optional[str] = _UNSET,
+        target: t.Optional[str] = _UNSET,
+        required: bool = _UNSET,
+        default: t.Any = _UNSET,
+        transform: t.Optional[t.Callable] = _UNSET,
+        type: t.Optional[t.Type] = _UNSET,
+        choices: t.Optional[t.List[t.Any]] = _UNSET,
+        mapping: t.Optional[t.Dict] = _UNSET,
+        mapper: t.Optional[t.Callable] = _UNSET,
+        keysaschoices: bool = _UNSET,
+        valuesaschoices: bool = _UNSET,
+        transient: bool = _UNSET,
+        conditional: bool = _UNSET,
+        dependencies: t.Optional[t.List[str]] = _UNSET,
+        conditions: t.Optional[t.Dict[str, t.Callable]] = _UNSET,
+        allownone: bool = _UNSET,
         **kwargs: t.Any
     ) -> None:
         """Initialize parameter with clientfactory extensions."""
-        #! FIND ANOTHER WAY TO RESOLVE FROM CLASS ATTRIBUTES AFTER UPDATING SIGNATURE
-        preserve = {'mapping', 'mapper', 'keysaschoices', 'valuesaschoices', 'choices'}
-        kwargs.update({
-            attr: getattr(self.__class__, attr)
-            for attr in preserve
-            if (attr not in kwargs) and (getattr(self.__class__, attr, None) is not None)
-        })
+        # apply real defaults for unset values
+        for pname, dvalue in self.__class__.__defaults__.items():
+            if locals()[pname] is _UNSET:
+                locals()[pname] = dvalue
+
+        # resolve class attrs before calling super
+        shouldresolve = lambda key: (key not in ('self', 'kwargs', 'shouldresolve')) and (not key.startswith('_'))
+        resolvable = {k:v for k, v in locals().items() if (v is not _UNSET) and shouldresolve(k)}
+        resolved = self._resolveclassattrs(**resolvable)
         super().__init__(
-            name=name,
-            source=source,
-            target=target,
-            required=required,
-            default=default,
-            transform=transform,
-            **kwargs
+            **resolved
         )
         self.allownone: bool = allownone
+        self._explicit: dict = resolvable # store explicit params for use in __rshift__/__lshift__
+
+    def _resolveclassattrs(self, **resolve) -> t.Dict[str, t.Any]:
+        """
+        Resolve class-level attributes into instance initialization.
+
+        Precedence order:
+        1. User-provided explicit kwargs (different from defaults) - highest
+        2. Class attributes - middle
+        3. Parameter defaults - lowest
+
+        Returns:
+            Updated kwargs dictionary with resolved class attributes.
+        """
+        filtered = {k:v for k,v in resolve.items() if k not in ('self', 'kwargs') or not k.startswith('_')}
+        defaults = {
+            n: p.default
+            for n, p in inspect.signature(self.__init__).parameters.items()
+            if p.default is not inspect.Parameter.empty
+        }
+
+        explicit = {key for key in resolve.keys()}.union({name for name, value in filtered.items() if (name in defaults) and (value != defaults[name])})
+        resolvable = {
+            k: v
+            for k,v in filtered.items()
+            if (
+                v is not None and
+                (
+                    k not in defaults or
+                    v != defaults[k]
+                )
+            )
+        }
+        if hasattr(self.__class__, '_classattrs'):
+            # Start with class attributes, then update with explicit kwargs
+            resolved = self.__class__._classattrs.copy()
+            resolved.update(resolvable)
+            return resolved
+        return filtered
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        """
+        Capture class-level field attributes during class definition.
+
+        Scans the class for attributes that match field construct names and stores
+        them for later resolution during instance initialization. Excludes private
+        attributes and handles callable attributes appropriately.
+        """
+        super().__init_subclass__(**kwargs)
+        verify = lambda name: (not name.startswith('_')) and (name in cls.__constructs__)
+        validate = lambda name, value: (value is not None) and (not callable(value) or name in ['transform', 'mapper'])
+        cls._classattrs = {
+            name: getattr(cls, name, None)
+            for name in dir(cls)
+            if verify(name) and validate(name, getattr(cls, name, None))
+        }
 
     def __set_name__(self, owner, name):
         """Called when Param is assigned to a class attribute."""
@@ -318,7 +382,50 @@ class Param(sex.Field):
             return list(self.choices)
         return []
 
-    #! OVERRIDE RSHIFT & LSHIFT
+    def __rshift__(self, other: 'Param') -> 'Param': # pyright: ignore[reportIncompatibleMethodOverride]
+        """
+        Override with other's explicit values only.
+
+        Usage: base >> override
+        Result: base values, but override with other's explicitly set values
+        """
+        # Get self's explicit values (if we tracked them)
+        # For now, get all non-None values from self
+        new = {
+            attr: getattr(self, attr, self.__class__.__defaults__[attr])
+            for attr in self.__class__.__defaults__.keys()
+            if getattr(self, attr, None) is not None
+        }
+        # Override with other's explicit values only
+        new.update({
+            attr: getattr(other, attr, other.__class__.__defaults__[attr])
+            for attr in other._explicit
+        })
+
+        return Param(**new)
+
+    def __lshift__(self, other: 'Param') -> 'Param':
+        """
+        Fill in missing values from other.
+
+        Usage: sparse << defaults
+        Result: sparse values, but fill gaps with other's values
+        """
+        # Get all non-None values from other
+        new = {
+            attr: getattr(other, attr, other.__class__.__defaults__[attr])
+            for attr in other.__class__.__defaults__.keys()
+            if getattr(other, attr, None) is not None
+        }
+
+        # Override with self's non-None values (self takes precedence)
+        new.update({
+            attr: getattr(self, attr, self.__class__.__defaults__[attr])
+            for attr in self.__class__.__defaults__.keys()
+            if getattr(self, attr, None) is not None
+        })
+
+        return Param(**new)
 
 class BoundPayload:
     """Payload bound to specific source mappings."""
