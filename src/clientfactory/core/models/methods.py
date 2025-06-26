@@ -5,8 +5,10 @@
 from __future__ import annotations
 import typing as t
 
+
 from clientfactory.core.models.config import MethodConfig
-from clientfactory.mixins import IterMixin
+from clientfactory.core.protos import BoundMethodProtocol
+from clientfactory.mixins import IterMixin, PrepMixin
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
@@ -21,7 +23,7 @@ BoundParentType = t.Union[
 ]
 
 
-class BoundMethod(IterMixin):
+class BoundMethod(IterMixin, PrepMixin):
     """A bound method that can accept mixins for enhanced functionality"""
 
     def __init__(

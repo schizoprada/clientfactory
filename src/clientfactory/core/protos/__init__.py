@@ -3,6 +3,7 @@
 """
 from .auth import AuthProtocol
 from .backend import BackendProtocol
+from .boundmethod import BoundMethodProtocol
 from .condition import ConditionProtocol
 from .payload import PayloadProtocol
 from .persistence import PersistenceProtocol
