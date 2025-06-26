@@ -12,7 +12,7 @@ from clientfactory.core.protos import BackendProtocol
 from clientfactory.core.bases import BaseResource, BaseSession
 from clientfactory.core.models import (
     Payload, RequestModel, SearchResourceConfig,
-    HTTPMethod, MethodConfig
+    HTTPMethod, MethodConfig, MergeMode
 )
 from clientfactory.core.models.methods import BoundMethod
 
@@ -30,8 +30,14 @@ class SearchResource(Resource):
     through Payload integration.
     """
     __declaredas__: str = "searchresource"
-    __declattrs__: set[str] = BaseResource.__declattrs__ | {'payload', 'searchmethod', 'oncall', 'method'}
-    __declconfs__: set[str] = BaseResource.__declconfs__ | {'method'}
+    __declattrs__: set[str] = BaseResource.__declattrs__ | {
+        'payload', 'searchmethod', 'oncall', 'method',
+        'headers', 'cookies', 'headermode', 'cookiemode',
+        'timeout', 'retries', 'preprocess', 'postprocess'
+    }
+    __declconfs__: set[str] = BaseResource.__declconfs__ | {
+        'method', 'headermode', 'cookiemode', 'timeout', 'retries'
+    }
 
 
     def __init__(
@@ -92,8 +98,22 @@ class SearchResource(Resource):
 
     def _generatesearchmethod(self) -> None:
         """Generate the search method."""
-        #! TODO: We need to handle method configuration for this
-            # e.g. pre/post processing hooks
+        # create a method config
+        methodconfig = MethodConfig(
+            name=self.searchmethod,
+            method=self.method,
+            path=self.path,
+            payload=self._getpayloadinstance(),
+            headers=self.headers,
+            cookies=self.cookies,
+            headermode=self.headermode,
+            cookiemode=self.cookiemode,
+            timeout=self.timeout,
+            retries=self.retries,
+            preprocess=self.preprocess,
+            postprocess=self.postprocess
+        )
+
         def searchmethod(*args, noexec: bool = False, **kwargs) -> t.Any:
             log.info(f"""
                 SearchResource.searchmethod:
@@ -127,7 +147,8 @@ class SearchResource(Resource):
             # build request
             request = self._buildrequest(method=self.method, path=path, **validated)
 
-            log.info(f"SearchResource.searchmethod: request.url = {request.url}")
+            # apply method config
+            request = self._applymethodconfig(request, methodconfig)
 
             # format through backend if available
             if self._backend:
@@ -147,13 +168,6 @@ class SearchResource(Resource):
         searchmethod.__name__ = self.searchmethod
         searchmethod.__doc__ = self._generatedocstring()
 
-        # create a method config
-        methodconfig = MethodConfig(
-            name=self.searchmethod,
-            method=self.method,
-            path=self.path,
-            payload=self._getpayloadinstance()
-        )
 
         bound = BoundMethod(searchmethod, self, methodconfig)
 
@@ -169,6 +183,15 @@ class SearchResource(Resource):
         self.searchmethod = attributes.get('searchmethod', 'search')
         self.oncall = attributes.get('oncall', False)
         log.info(f"SearchResource._resolveattributes: self.path (after) = {getattr(self, 'path', 'NOTSET')} ")
+        # method config attributes
+        self.headers = attributes.get('headers')
+        self.cookies = attributes.get('cookies')
+        self.headermode = attributes.get('headermode', MergeMode.MERGE)
+        self.cookiemode = attributes.get('cookiemode', MergeMode.MERGE)
+        self.timeout = attributes.get('timeout')
+        self.retries = attributes.get('retries')
+        self.preprocess = attributes.get('preprocess')
+        self.postprocess = attributes.get('postprocess')
 
     def _initmethods(self) -> None:
         super()._initmethods()

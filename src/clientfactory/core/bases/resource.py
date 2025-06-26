@@ -9,7 +9,7 @@ import abc, typing as t
 
 from clientfactory.core.models import (
     ResourceConfig, RequestModel, ResponseModel,
-    HTTPMethod
+    HTTPMethod, MethodConfig, MergeMode
 )
 from clientfactory.core.protos import (
     SessionProtocol, BackendProtocol, PayloadProtocol
@@ -199,6 +199,31 @@ class BaseResource(abc.ABC, Declarative):
 
         return result
 
+    def _applymethodconfig(self, request: RequestModel, config: MethodConfig) -> RequestModel:
+        """Apply method-specific headers, cookies, timeout, retries to request."""
+        constructs = {
+            'headers': request.headers.copy(),
+            'cookies': request.cookies.copy(),
+            'timeout': request.timeout,
+            #! 'retries': request.retries // currently, retries are not in the RequestModel
+        }
+        if config.headers:
+            if config.headermode == MergeMode.MERGE:
+                constructs['headers'].update(config.headers)
+            elif config.headermode == MergeMode.OVERWRITE:
+                constructs['headers'] = config.headers
+
+        if config.cookies:
+            if config.cookiemode == MergeMode.MERGE:
+                constructs['cookies'].update(config.cookies)
+            elif config.cookiemode == MergeMode.OVERWRITE:
+                constructs['cookies'] = config.cookies
+
+        if config.timeout is not None:
+            constructs['timeout'] = config.timeout
+
+        return request.model_copy(update=constructs)
+
     def _createboundmethod(self, method: t.Callable) -> BoundMethod:
         methodconfig = getattr(method, '_methodconfig')
 
@@ -223,6 +248,9 @@ class BaseResource(abc.ABC, Declarative):
                path=path,
                **(kwargs or {})
             )
+
+            # apply method config
+            request = self._applymethodconfig(request, methodconfig)
 
             if self._backend:
                 request = self._backend.formatrequest(request, kwargs)

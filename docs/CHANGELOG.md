@@ -1,5 +1,17 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.23] -- *2025-06-26*
++ Enhanced MethodConfig: Method-specific headers, cookies, and request attributes for granular control
+- Added headers, cookies, headermode, cookiemode, timeout, retries fields to MethodConfig
+- Updated httpmethod decorator to accept method-specific configuration parameters
+- Implemented merge mode support (MERGE, OVERWRITE, IGNORE) for headers and cookies
+- Added _applymethodconfig() helper for applying method configs during request building
+- Integrated method config application in BaseClient._createboundmethod() and BaseResource._createboundmethod()
+- Updated SearchResource to support method-level configurations through _resolveattributes()
+- Enhanced @searchable decorator with full method configuration parameter support
+- Method configurations take precedence over session-level settings in request pipeline
+- Complete integration with existing request building and execution infrastructure
+
 ## [0.9.22] -- *2025-06-25*
 + Updated `Param.__init__` signature to match `schematix.BaseField.__init__` for consistency
 + Added class attribute resolution for inherited `Param` subclasses

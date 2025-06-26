@@ -9,7 +9,7 @@ import typing as t
 
 from clientfactory.core import Resource
 from clientfactory.resources import SearchResource, ManagedResource
-from clientfactory.core.models import ResourceConfig, SearchResourceConfig
+from clientfactory.core.models import ResourceConfig, SearchResourceConfig, MergeMode
 from clientfactory.decorators._utils import annotate
 from clientfactory.logs import log
 
@@ -137,6 +137,14 @@ def searchable(
    method: t.Optional[str] = None,
    searchmethod: str = "search",
    oncall: bool = False,
+   headers: t.Optional[t.Dict[str, str]] = None,
+   cookies: t.Optional[t.Dict[str, str]] = None,
+   headermode: t.Optional[MergeMode] = None,
+   cookiemode: t.Optional[MergeMode] = None,
+   timeout: t.Optional[float] = None,
+   retries: t.Optional[int] = None,
+   preprocess: t.Optional[t.Callable] = None,
+   postprocess: t.Optional[t.Callable] = None,
    **kwargs: t.Any
 ) -> t.Union[t.Type[SearchResource], t.Callable[[t.Type], t.Type[SearchResource]]]:
     """
@@ -151,44 +159,48 @@ def searchable(
         method: HTTP method for search (GET/POST)
         searchmethod: Name of the search method (default: "search")
         oncall: Whether to make the resource instance callable
+        headers: Method-specific headers
+        cookies: Method-specific cookies
+        headermode: How to merge method headers with session headers
+        cookiemode: How to merge method cookies with session cookies
+        timeout: Request timeout in seconds
+        retries: Number of retry attempts
+        preprocess: Function to transform request data
+        postprocess: Function to transform response data
         **kwargs: Additional search resource configuration
 
     Example:
         @searchable
         class UserSearch: pass
 
-        @searchable(payload=UserSearchPayload, oncall=True)
+        @searchable(payload=UserSearchPayload, oncall=True, timeout=60.0)
+        class UserSearch: pass
+
+        @searchable(headers={"X-API-Key": "secret"}, headermode=MergeMode.OVERWRITE)
         class UserSearch: pass
 
         @searchable(config=SearchConfig)
         class UserSearch: pass
     """
     def decorator(target: t.Type) -> t.Type[SearchResource]:
-        #log.info(f"@searchable: target={target.__name__}")
-        #log.info(f"@searchable: method param = {method}")
-        """
-        conf = config # type: ignore  #! possible unbound
-        if conf is None:
-            confkwargs = {
-                k: v for k, v in {
-                    'name': name or target.__name__.lower(),
-                    'path': path or (name or target.__name__.lower()),
-                    'payload': payload,
-                    'method': method,
-                    'searchmethod': searchmethod,
-                    'oncall': oncall,
-                    **kwargs
-                }.items() if v is not None
-            }
-            #log.info(f"@searchable: confkwargs={confkwargs}")
-            conf = SearchResourceConfig(**confkwargs)
-            #log.info(f"@searchable: conf={conf}")
-        """ #! let _transformtoresource handle it
-
         return _transformtoresource(
             target=target,
             variant=SearchResource,
             config=config,
+            name=name,
+            path=path,
+            payload=payload,
+            method=method,
+            searchmethod=searchmethod,
+            oncall=oncall,
+            headers=headers,
+            cookies=cookies,
+            headermode=headermode,
+            cookiemode=cookiemode,
+            timeout=timeout,
+            retries=retries,
+            preprocess=preprocess,
+            postprocess=postprocess,
             **kwargs
         )
 
