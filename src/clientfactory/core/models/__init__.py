@@ -6,6 +6,7 @@ from .enums import (
     HTTPMethod, AuthType, BackendType,
     PayloadType, SessionType, EngineType,
     ToleranceType, DeclarativeType,
+    MergeMode,
     HTTP, AUTH, BACKEND, PAYLOAD, SESSION,
     ENGINE, TOLERANCE, DECLARATIVE
 )
@@ -24,7 +25,7 @@ from .request import (
 )
 
 from .contexts import (
-    Headers, Cookies, SessionInitializer, MergeMode
+    Headers, Cookies, SessionInitializer
 )
 
 #forwardref()

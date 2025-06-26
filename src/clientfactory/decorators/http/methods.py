@@ -7,13 +7,14 @@ Enhanced decorators for defining API methods with comprehensive configuration su
 from __future__ import annotations
 import typing as t, functools as fn
 
-from clientfactory.core.models import HTTPMethod, MethodConfig, Payload
+from clientfactory.core.models import HTTPMethod, MethodConfig, Payload, MergeMode
+from clientfactory.decorators.http.docs import DOCS
 
 def _generatedocstring(config: MethodConfig, func: t.Callable) -> str:
     """Generate enhanced docstring for decorated method."""
     def _description() -> str:
         """Get the main description section."""
-        if config.description is not None:
+        if config.description:
             return config.description
         elif func.__doc__ is not None:
            return func.__doc__.strip()
@@ -37,8 +38,19 @@ def _generatedocstring(config: MethodConfig, func: t.Callable) -> str:
     def _config() -> list[str]:
         """Generate configuration info section."""
         lines = []
-        #! MethodConfig does not accept `timeout` yet
-        #! also missing retries and headers, probably need to implement ...
+
+        if config.timeout is not None:
+            lines.append(f"timeout={config.timeout}s")
+        if config.retries is not None:
+            lines.append(f"retries={config.retries}")
+        if config.headers:
+            lines.append(f"headers={len(config.headers)} custom")
+        if config.cookies:
+            lines.append(f"cookies={len(config.cookies)} custom")
+        if config.headermode != MergeMode.MERGE:
+            lines.append(f"headermode={config.headermode.value}")
+        if config.cookiemode != MergeMode.MERGE:
+            lines.append(f"cookiemode={config.cookiemode.value}")
 
         if lines:
             return [f"Configuration: {', '.join(lines)}"]
@@ -50,8 +62,6 @@ def _generatedocstring(config: MethodConfig, func: t.Callable) -> str:
             "Returns:",
             "    Response data or Response object"
         ]
-
-
 
     lines = [_description(), ""]
 
@@ -79,25 +89,40 @@ def _buildmethodconfig(
     func: t.Callable,
     method: HTTPMethod,
     path: t.Optional[str],
-    config: t.Optional[MethodConfig],
+    headers: t.Optional[t.Dict[str, str]] = None,
+    cookies: t.Optional[t.Dict[str, str]] = None,
+    headermode: t.Optional[MergeMode] = None,
+    cookiemode: t.Optional[MergeMode] = None,
+    timeout: t.Optional[float] = None,
+    retries: t.Optional[int] = None,
+    payload: t.Optional[t.Union[Payload, t.Type[Payload]]] = None,
+    preprocess: t.Optional[t.Callable] = None,
+    postprocess: t.Optional[t.Callable] = None,
+    description: t.Optional[str] = None,
+    config: t.Optional[MethodConfig] = None,
     **kwargs: t.Any
 ) -> MethodConfig:
     """Build MethodConfig from decorator parameters."""
+    data = {
+        'name': func.__name__,
+        'method': method,
+        'path': path,
+        'headers': headers,
+        'cookies': cookies,
+        'headermode': headermode,
+        'cookiemode': cookiemode,
+        'timeout': timeout,
+        'retries': retries,
+        'payload': payload,
+        'preprocess': preprocess,
+        'postprocess': postprocess,
+        'description': (description or func.__doc__ or ""),
+        **kwargs
+    }
+    constructs = {k:v for k,v in data.items() if v is not None}
     if config is not None:
-        updates = {k:v for k,v in kwargs.items() if v is not None}
-        if path is not None:
-            updates['path'] = path
-        updates['method'] = method
-        updates['name'] = func.__name__
-        return config.model_copy(update=updates)
-
-    return MethodConfig(
-        name=func.__name__,
-        method=method,
-        path=path,
-        description=kwargs.get('description', func.__doc__ or "") or (func.__doc__ or ""),
-        **{k:v for k,v in kwargs.items() if k!='description' and v is not None}
-    )
+        return config.model_copy(update=constructs)
+    return MethodConfig(**constructs)
 
 def _validatemethodusage(
     method: HTTPMethod,
@@ -113,10 +138,12 @@ def httpmethod(
     *,
     config: t.Optional[MethodConfig] = None,
     payload: t.Optional[t.Union[Payload, t.Type[Payload]]] = None,
-    #headers: t.Optional[t.Dict[str, str]] = None, #! not yet implemented
-    #cookies: t.Optional[t.Dict[str, str]] = None, #! not yet implemented
-    #timeout: t.Optional[float] = None, #! not yet implemented
-    #retries: t.Optional[int] = None, #! not yet implemented
+    headers: t.Optional[t.Dict[str, str]] = None,
+    cookies: t.Optional[t.Dict[str, str]] = None,
+    headermode: t.Optional[MergeMode] = None,
+    cookiemode: t.Optional[MergeMode] = None,
+    timeout: t.Optional[float] = None,
+    retries: t.Optional[int] = None,
     preprocess: t.Optional[t.Callable] = None,
     postprocess: t.Optional[t.Callable] = None,
     description: t.Optional[str] = None,
@@ -130,6 +157,12 @@ def httpmethod(
         path: Endpoint path (can include parameters like {id})
         config: Pre-configured MethodConfig object
         payload: Payload class for request validation
+        headers: Method-specific headers
+        cookies: Method-specific cookies
+        headermode: How to merge method headers with session headers
+        cookiemode: How to merge method cookies with session cookies
+        timeout: Request timeout in seconds
+        retries: Number of retry attempts
         preprocess: Function to transform request data
         postprocess: Function to transform response data
         description: Method description (overrides docstring)
@@ -148,11 +181,17 @@ def httpmethod(
             func=func,
             method=method,
             path=path,
-            config=config,
+            headers=headers,
+            cookies=cookies,
+            headermode=headermode,
+            cookiemode=cookiemode,
+            timeout=timeout,
+            retries=retries,
             payload=payload,
             preprocess=preprocess,
             postprocess=postprocess,
             description=description,
+            config=config,
             **kwargs
         )
 
@@ -167,129 +206,6 @@ def httpmethod(
     return decorator
 
 # HTTP method decorators
-
-class DOCS:
-   GET: str = """
-GET request decorator.
-
-Args:
-   path: Endpoint path (can include parameters like {id})
-   config: Pre-configured MethodConfig object
-   preprocess: Function to transform request data (typically for query params)
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Note: GET requests cannot have payloads. Use preprocess to handle query parameters.
-
-Example:
-   @get("{id}")
-   def get_user(self, id): pass
-
-   @get("search", preprocess=lambda data: {"params": data})
-   def search_users(self, query): pass
-"""
-
-   POST: str = """
-POST request decorator.
-
-Args:
-   path: Endpoint path
-   config: Pre-configured MethodConfig object
-   payload: Payload class for request validation
-   preprocess: Function to transform request data
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Example:
-   @post("users", payload=UserPayload)
-   def create_user(self, **data): pass
-
-   @post("bulk", config=BulkCreateConfig)
-   def bulk_create(self, **data): pass
-"""
-
-   PUT: str = """
-PUT request decorator.
-
-Args:
-   path: Endpoint path
-   config: Pre-configured MethodConfig object
-   payload: Payload class for request validation
-   preprocess: Function to transform request data
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Example:
-   @put("{id}", payload=UserPayload)
-   def update_user(self, id, **data): pass
-"""
-
-   PATCH: str = """
-PATCH request decorator.
-
-Args:
-   path: Endpoint path
-   config: Pre-configured MethodConfig object
-   payload: Payload class for request validation
-   preprocess: Function to transform request data
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Example:
-   @patch("{id}", payload=UserUpdatePayload)
-   def partial_update_user(self, id, **data): pass
-"""
-
-   DELETE: str = """
-DELETE request decorator.
-
-Args:
-   path: Endpoint path
-   config: Pre-configured MethodConfig object
-   preprocess: Function to transform request data
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Example:
-   @delete("{id}")
-   def delete_user(self, id): pass
-
-   @delete("batch", preprocess=lambda data: {"json": {"ids": data["ids"]}})
-   def batch_delete(self, ids): pass
-"""
-
-   HEAD: str = """
-HEAD request decorator.
-
-Args:
-   path: Endpoint path
-   config: Pre-configured MethodConfig object
-   preprocess: Function to transform request data
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Note: HEAD requests cannot have payloads.
-
-Example:
-   @head("{id}")
-   def check_user_exists(self, id): pass
-"""
-
-   OPTIONS: str = """
-OPTIONS request decorator.
-
-Args:
-   path: Endpoint path
-   config: Pre-configured MethodConfig object
-   preprocess: Function to transform request data
-   postprocess: Function to transform response data
-   description: Method description (overrides docstring)
-
-Example:
-   @options("users")
-   def get_user_options(self): pass
-"""
-
 def _createdecorator(method: HTTPMethod) -> t.Callable:
     def decorator(funcorpath: t.Any = None, **kwargs):
         if callable(funcorpath):

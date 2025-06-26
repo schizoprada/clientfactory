@@ -71,6 +71,12 @@ class DeclarativeType(str, enum.Enum):
     COMPONENT = "component"
 
 
+class MergeMode(str, enum.Enum):
+    """How to handle merging extracted data with existing session data."""
+    MERGE = "merge"
+    OVERWRITE = "overwrite"
+    IGNORE = "ignore"
+
 ## Shorthand Aliases ##
 HTTP = HTTPMethod
 AUTH = AuthType

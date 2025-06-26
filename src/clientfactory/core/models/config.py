@@ -19,7 +19,7 @@ from pydantic import (
 from clientfactory.core.models.enums import (
     HTTPMethod, AuthType, BackendType,
     PayloadType, SessionType, EngineType,
-    ToleranceType
+    ToleranceType, MergeMode
 )
 
 if t.TYPE_CHECKING:
@@ -43,6 +43,15 @@ class MethodConfig(PydModel):
     name: str
     method: HTTPMethod
     path: t.Optional[str] = None
+
+    ## request contexts ##
+    headers: t.Optional[t.Dict[str, str]] = None
+    cookies: t.Optional[t.Dict[str, str]] = None
+    headermode: MergeMode = MergeMode.MERGE
+    cookiemode: MergeMode = MergeMode.MERGE
+    timeout: t.Optional[float] = None
+    retries: t.Optional[int] = None
+
 
     ## processing hooks ##
     preprocess: t.Optional[t.Callable] = None

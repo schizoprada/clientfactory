@@ -5,8 +5,9 @@ Request Context Models
 Dict-compatible classes for headers, cookies, and other request contexts.
 """
 from __future__ import annotations
-import enum, typing as t
+import typing as t
 
+from clientfactory.core.models.enums import MergeMode
 from clientfactory.core.models.request import RequestModel, ResponseModel
 
 
@@ -214,11 +215,7 @@ class Cookies(dict):
 
         return self
 
-class MergeMode(str, enum.Enum):
-    """How to handle merging extracted data with existing session data."""
-    MERGE = "merge"
-    OVERWRITE = "overwrite"
-    IGNORE = "ignore"
+
 
 class SessionInitializer:
     """
