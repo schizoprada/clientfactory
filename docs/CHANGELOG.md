@@ -1,5 +1,12 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.22] -- *2025-06-25*
++ Updated `Param.__init__` signature to match `schematix.BaseField.__init__` for consistency
++ Added class attribute resolution for inherited `Param` subclasses
++ Overrode `__rshift__` and `__lshift__` operators for `Param` merging with priority handling
++ Track explicitly set attributes to preserve user intent during param operations
+
+
 ## [0.9.2] -- *2025-06-24*
 * Advanced Iteration Framework: Comprehensive multi-cycle execution with conditional control and intelligent parameter resolution
 + Enhanced Parameter Discovery & Resolution: Complete offset/limit pagination detection with qualified parameter targeting

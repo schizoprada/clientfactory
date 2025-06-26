@@ -1,4 +1,4 @@
-# ~/clientfactory/tests/unit/core/models/test_request_resolves_attrs.py
+# ~/clientfactory/tests/unit/core/models/test_param_resolves_attrs.py
 
 import pytest
 from clientfactory.core.models.request import Param

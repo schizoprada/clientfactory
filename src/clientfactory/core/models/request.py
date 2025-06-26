@@ -15,6 +15,7 @@ from pydantic import (
     computed_field as computedfield
 )
 
+from pydantic.types import constr
 import schematix as sex
 
 from clientfactory.core.protos import PayloadProtocol
@@ -257,6 +258,8 @@ class ResponseModel(PydModel):
             request=request
         )
 
+_UNSET: t.Any = object() # sentinel
+
 class Param(sex.Field):
     """
     ClientFactory parameter built on schematix Field.
@@ -264,34 +267,72 @@ class Param(sex.Field):
     Extends schematix field capabilities with clientfactory-specific
     functionality for API parameter handling.
     """
+    __constructs__ = sex.BaseField.__constructs__ | {'allownone'}
 
     def __init__(
         self,
         name: t.Optional[str] = None,
-        source: t.Optional[str] = None,
-        target: t.Optional[str] = None,
-        required: bool = False,
+        required: bool = _UNSET,
         default: t.Any = None,
         transform: t.Optional[t.Callable] = None,
+        source: t.Optional[str] = None,
+        target: t.Optional[str] = None,
+        type: t.Optional[t.Type] = None,
+        choices: t.Optional[t.List[t.Any]] = None,
+        mapping: t.Optional[t.Dict] = None,
+        mapper: t.Optional[t.Callable] = None,
+        keysaschoices: bool = _UNSET,
+        valuesaschoices: bool = _UNSET,
+        transient: bool = _UNSET,
+        conditional: bool = _UNSET,
+        dependencies: t.Optional[t.List[str]] = None,
+        conditions: t.Optional[t.Dict[str, t.Callable]] = None,
         allownone: bool = True,
-        #! UPDATE TO MATCH BaseField.__init__ signature
         **kwargs: t.Any
     ) -> None:
         """Initialize parameter with clientfactory extensions."""
-        #! FIND ANOTHER WAY TO RESOLVE FROM CLASS ATTRIBUTES AFTER UPDATING SIGNATURE
-        preserve = {'mapping', 'mapper', 'keysaschoices', 'valuesaschoices', 'choices'}
-        kwargs.update({
-            attr: getattr(self.__class__, attr)
-            for attr in preserve
-            if (attr not in kwargs) and (getattr(self.__class__, attr, None) is not None)
-        })
+        self._explicit: set[str] = set()
+
+        constructing = {
+            'name': name,
+            'required': required,
+            'default': default,
+            'transform': transform,
+            'source': source,
+            'target': target,
+            'type': type,
+            'choices': choices,
+            'mapping': mapping,
+            'mapper': mapper,
+            'keysaschoices': keysaschoices,
+            'valuesaschoices': valuesaschoices,
+            'transient': transient,
+            'conditional': conditional,
+            'dependencies': dependencies,
+            'conditions': conditions,
+            'allownone': allownone
+        }
+
+        # track explicit attrs before resolution
+        for attr, value in constructing.items():
+            if (value is not _UNSET) and (value is not None):
+                self._explicit.add(attr)
+
+        # resolve class attributes or remove if unset
+        for attr in sex.BaseField.__constructs__:
+            if (constructing[attr] is None) or (constructing[attr] is _UNSET):
+                if hasattr(self.__class__, attr):
+                    cval = getattr(self.__class__, attr)
+                    if cval is not None:
+                        constructing[attr] = cval
+                        self._explicit.add(attr) # class attrs count as explicit
+                    else:
+                        del constructing[attr]
+                else:
+                    del constructing[attr]
+
         super().__init__(
-            name=name,
-            source=source,
-            target=target,
-            required=required,
-            default=default,
-            transform=transform,
+            **constructing,
             **kwargs
         )
         self.allownone: bool = allownone
@@ -318,7 +359,55 @@ class Param(sex.Field):
             return list(self.choices)
         return []
 
-    #! OVERRIDE RSHIFT & LSHIFT
+    def __rshift__(self, other: 'Param') -> 'Param': # pyright: ignore[reportIncompatibleMethodOverride]
+        """
+        Merge with another Param, prioritizing self's attributes.
+
+        Returns a new Param with attributes from both, where self's
+        non-None values take precedence in conflicts.
+
+        Example:
+            p1 >> p2  # p1's values win where both are defined
+        """
+        def pick(a: str) -> t.Any:
+            if a in self._explicit:
+                return getattr(self, a, None)
+            elif a in getattr(other, '_explicit', set()):
+                return getattr(other, a, None)
+            return None
+
+        merged = {
+            attr: pick(attr)
+            for attr in self.__constructs__
+            if pick(attr) is not None
+        }
+
+        return Param(**merged)
+
+    def __lshift__(self, other: 'Param') -> 'Param':
+        """
+        Merge with another Param, prioritizing other's attributes.
+
+        Returns a new Param with attributes from both, where other's
+        non-None values take precedence in conflicts.
+
+        Example:
+            p1 << p2  # p2's values win where both are defined
+        """
+        def pick(a: str) -> t.Any:
+            if a in getattr(other, '_explicit', set()):
+                return getattr(other, a, None)
+            elif a in self._explicit:
+                return getattr(self, a, None)
+            return None
+
+        merged = {
+            attr: pick(attr)
+            for attr in self.__constructs__
+            if pick(attr) is not None
+        }
+
+        return Param(**merged)
 
 class BoundPayload:
     """Payload bound to specific source mappings."""
