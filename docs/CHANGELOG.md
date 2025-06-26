@@ -1,5 +1,14 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.24] -- *2025-06-26*
++ Executable RequestModel Objects: Request objects with attached executor for deferred execution outside client scope
+- Added ExecutableRequest class inheriting from RequestModel with embedded BaseEngine
+- Implemented callable interface for ExecutableRequest to execute requests on demand
+- Added engine field validation to ensure proper BaseEngine instances
+- Foundation for prepareable requests that can be created in client scope and executed later
+- Complete preservation of all RequestModel functionality and inheritance behavior
+
+
 ## [0.9.23] -- *2025-06-26*
 + Enhanced MethodConfig: Method-specific headers, cookies, and request attributes for granular control
 - Added headers, cookies, headermode, cookiemode, timeout, retries fields to MethodConfig

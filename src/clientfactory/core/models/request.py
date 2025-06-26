@@ -27,7 +27,6 @@ if t.TYPE_CHECKING:
     import requests as rq
 
 
-
 class RequestModel(PydModel):
     """
     HTTP Request representation.
@@ -257,6 +256,23 @@ class ResponseModel(PydModel):
             elapsedtime=response.elapsed.total_seconds(),
             request=request
         )
+
+class ExecutableRequest(RequestModel):
+    """..."""
+    engine: t.Any
+
+    @fieldvalidator('engine')
+    @classmethod
+    def _validateengine(cls, v: t.Any) -> t.Any:
+        from clientfactory.core.bases.engine import BaseEngine
+        if not isinstance(v, BaseEngine):
+            raise ValueError(f"'engine' must be a BaseEngine type.")
+        return v
+
+    def __call__(self) -> ResponseModel:
+        """Execute this request with the provided engine."""
+        return self.engine.send(self, noexec=False)
+
 
 _UNSET: t.Any = object() # sentinel
 

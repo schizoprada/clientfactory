@@ -21,7 +21,8 @@ from .config import (
 )
 from .request import (
     RequestModel, ResponseModel,
-    Param, Payload, BoundPayload
+    Param, Payload, BoundPayload,
+    ExecutableRequest
 )
 
 from .contexts import (
