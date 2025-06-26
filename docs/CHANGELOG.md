@@ -1,5 +1,17 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.25] -- *2025-06-26*
++ Preparable Mixin: Interface for creating executable requests that can be prepared and executed later
+- Added PrepMixin class with .prepare() method for bound methods
+- Implemented request preparation logic mirroring bound method execution flow
+- Added helper methods: _getmethodconfig(), _getengine(), _preparerequest() for clean separation of concerns
+- Integrated PrepMixin into BoundMethod class alongside IterMixin for enhanced functionality
+- Preparation method builds full request with method configs, path substitution, and backend formatting
+- Returns ExecutableRequest objects that can be called outside of client scope
+- Complete preservation of all request building logic: preprocessing, path resolution, method config application
+- Foundation established for future mixin composability and fluent chaining patterns
+
+
 ## [0.9.24] -- *2025-06-26*
 + Executable RequestModel Objects: Request objects with attached executor for deferred execution outside client scope
 - Added ExecutableRequest class inheriting from RequestModel with embedded BaseEngine

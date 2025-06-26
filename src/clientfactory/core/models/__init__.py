@@ -29,6 +29,8 @@ from .contexts import (
     Headers, Cookies, SessionInitializer
 )
 
+from .methods import BoundMethod
+
 #forwardref()
 
 #! define __all__
