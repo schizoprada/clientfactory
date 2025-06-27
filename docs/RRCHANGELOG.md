@@ -2,6 +2,33 @@
 
 ## [0.9.26-alpha.3] - June 27, 2025
 
+### Removed
+- **Redundant Instance Methods** (Cleanup Phase)
+  - Removed `BaseClient._separatekwargs()`, `_buildrequest()`, `_substitutepath()`, `_resolvepathargs()`, `_applymethodconfig()`
+  - Removed `BaseResource._separatekwargs()`, `_buildrequest()`, `_substitutepath()`, `_resolvepathargs()`, `_applymethodconfig()`
+  - Removed abstract `_buildrequest()` method from `BaseResource`
+
+### Changed
+- **PrepMixin Updated**
+  - `_preparerequest()` now uses consolidated utils directly instead of calling parent instance methods
+  - No longer depends on `getattr(parent, method_name)` pattern
+- **IterMixin Method Renamed**
+  - `_separatekwargs()` → `_separateiterconfig()` to avoid naming collision with removed request building method
+  - Updated call sites and tests accordingly
+
+### Fixed
+- **Method Name Collision**
+  - Resolved confusion between request building and iteration parameter separation
+  - Clearer method naming for domain-specific functionality
+
+### Technical Debt Resolved
+- Eliminated duplicate request building logic across client/resource hierarchy
+- Removed dependency on instance methods in mixins
+- Consolidated all request utilities into shared `core/utils/` modules
+
+### Test Results
+- Unit tests: 3 additional failures (100 total) - minimal impact from cleanup
+- Existing failures likely unrelated to redundancy removal changes
 
 ## [0.9.26-alpha.2] - June 27, 2025
 
