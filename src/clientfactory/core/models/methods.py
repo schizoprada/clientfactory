@@ -9,6 +9,7 @@ from clientfactory.core.utils.typed import UNSET
 from clientfactory.core.models.config import MethodConfig
 from clientfactory.core.protos import BoundMethodProtocol
 from clientfactory.mixins import IterMixin, PrepMixin
+from clientfactory.mixins.core import Mixer
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
@@ -91,3 +92,8 @@ class BoundMethod(IterMixin, PrepMixin):
     def _methodconfig(self) -> MethodConfig:
         """Backwards compatibility"""
         return self._config
+
+    @property
+    def chain(self) -> Mixer:
+        """..."""
+        return Mixer(self)

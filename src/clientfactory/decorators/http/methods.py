@@ -220,7 +220,8 @@ def _createdecorator(method: HTTPMethod) -> t.Callable[..., t.Union['BoundMethod
             # no parentheses
             return httpmethod(method, None)(funcorpath)
         return httpmethod(method, funcorpath, **kwargs)
-    return decorator
+    decorator.__annotations__ = {'return': 'BoundMethod'}
+    return t.cast(t.Callable[..., 'BoundMethod'], decorator)
 
 get = _createdecorator(HTTPMethod.GET)
 post = _createdecorator(HTTPMethod.POST)

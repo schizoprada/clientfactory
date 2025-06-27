@@ -1,5 +1,38 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.27] -- *2025-06-27*
+* Mixin Interoperability System: Chainable mixin architecture enabling fluent API composition
++ Mixer Orchestration Framework: Central coordinator for mixin chaining and execution
+- Mixer class with dynamic method discovery and chainable interface
+- Order-independent mixin composition: `.iter().prep()` equivalent to `.prep().iter()`
+- Priority-based execution with conflict detection and merge strategy support
+- Mode-aware execution: DEFERRED accumulation, PREPARE terminal, TRANSFORM flow modification
+- Auto-reset behavior with configurable state management per mixin
++ Enhanced Mixin Architecture: Unified base system with metadata-driven configuration
+- BaseMixin abstract class with standardized `_exec_()` and `_configure_()` interfaces
+- MixinMetadata model with comprehensive behavior control (priority, conflicts, merge strategies, execution modes)
+- ExecMode enum for execution flow control: IMMEDIATE, DEFERRED, TRANSFORM, PREPARE
+- MergeStrategy enum with callable merge logic: UPDATE, REPLACE, DEEP, APPEND
+- Scoping and compatibility management for complex mixin interactions
++ Fluent Chaining API: Developer-friendly interface for mixin composition
+- BoundMethod.chain property providing access to Mixer orchestration
+- Chainable methods return self for continued composition
+- Terminal execution via `.execute()` or direct call `()`
+- Backward compatibility maintained for existing single-mixin usage patterns
++ Updated Existing Mixins: IterMixin and PrepMixin enhanced with interoperability support
+- Abstract method implementations for _exec_() and _configure_()
+- Metadata configuration with proper priority and execution modes
+- Integration with existing iteration and preparation logic
+- Parameter filtering and configuration management for chain compatibility
+
+**Breaking Changes**: None - all existing mixin usage patterns remain unchanged
+
+**Developer Experience**: Foundation established for fluent mixin composition enabling complex request processing workflows
+
+**Known Issues**: IDE autocomplete limitations for decorated methods with arguments and dynamic Mixer methods require further investigation
+
+**Architecture Notes**: Mixer system designed for extensibility - new mixins automatically integrate by inheriting BaseMixin and defining __chainedas__ identifier
+
 ## [0.9.26] -- *2025-06-27*
 * Redundancy removal and type hinting improvements
 + Universal Request Utilities: Consolidated duplicate logic across client/resource hierarchy

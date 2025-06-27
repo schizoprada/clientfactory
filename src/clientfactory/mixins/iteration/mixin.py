@@ -10,17 +10,48 @@ from collections.abc import Iterator, Iterable
 
 
 from clientfactory.core.models import Param, Payload, MethodConfig
+from clientfactory.mixins.core import BaseMixin, MixinMetadata
+from clientfactory.mixins.core.comps import DEFERRED
 from clientfactory.mixins.iteration.comps import (
     ErrorHandles, CycleModes, ErrorCallback,
     IterCycle, IterateCyclesType, IterContext,
-    CycleBreak,
-    PAGEPARAMS, OFFSETPARAMS, LIMITPARAMS, ITERCONFIGS
+    CycleBreak, PAGEPARAMS, OFFSETPARAMS,
+    LIMITPARAMS, ITERCONFIGS,
+    ITERKEYS, EXECDEFAULTS
 )
 
 from clientfactory.logs import log
 
-class IterMixin:
+
+class IterMixin(BaseMixin):
     """Mixin to add parameter iteration capabilities to bound methods."""
+    __mixmeta__ = MixinMetadata(
+        mode = DEFERRED,
+        priority = 5,
+        confkeys = ITERCONFIGS
+    )
+    __chainedas__: str = 'iter'
+
+    def _exec_(self, conf: t.Dict[str, t.Any], **kwargs) -> t.Any:
+        """..."""
+        final = {**conf, **kwargs}
+        param, cycles, mode, static, store, breaks = [
+            final.pop(key, default) for key, default in EXECDEFAULTS.items()
+        ]
+        return self.iterate(
+            param=param,
+            cycles=cycles,
+            mode=mode,
+            static=static,
+            store=store,
+            breaks=breaks,
+            **final
+        )
+
+    def _configure_(self, **kwargs) -> t.Dict[str, t.Any]:
+        """Testing Testing"""
+        return {k:v for k,v in kwargs.items() if k in ITERKEYS}
+
 
     def __init__(self, *args, **kwargs) -> None:
         """..."""

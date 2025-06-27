@@ -352,3 +352,16 @@ ITERCONFIGS: set[str] = {
     'start', 'end', 'step', 'stepfilter','values', 'onerror', 'maxretries',
     'retrydelay', 'errorcallback', 'cycles', 'cyclemode'
 }
+
+
+ITERKEYS: set[str] = PAGEPARAMS | OFFSETPARAMS | LIMITPARAMS | ITERCONFIGS | {'breaks', 'param', 'cycles', 'mode', 'static', 'store'}
+
+
+EXECDEFAULTS: dict[str, t.Any] = {
+    'param': None,
+    'cycles': None,
+    'mode': CycleModes.SEQ,
+    'static': None,
+    'store': False,
+    'breaks': None
+}
