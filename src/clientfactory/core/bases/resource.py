@@ -17,10 +17,11 @@ from clientfactory.core.protos import (
 from clientfactory.core.bases.session import BaseSession
 from clientfactory.core.bases.declarative import Declarative
 from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
-from clientfactory.core.models.methods import BoundMethod
+
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.client import BaseClient
+    from clientfactory.core.models.methods import BoundMethod
 
 class BaseResource(abc.ABC, Declarative):
     """
@@ -117,165 +118,22 @@ class BaseResource(abc.ABC, Declarative):
         """
         ...
 
-    @abc.abstractmethod
-    def _buildrequest(
-        self,
-        method: t.Union[str, HTTPMethod],
-        path: t.Optional[str] = None,
-        **kwargs: t.Any
-    ) -> RequestModel:
-        """
-        Build request for resource method.
-
-        Concrete resources implement request building logic.
-        """
-        ...
 
     ## concretes ##
-    def _separatekwargs(self, method: HTTPMethod, **kwargs) -> tuple[dict, dict]:
-        """Separate kwargs into request fields and body data based on HTTP method."""
-        fields = {}
-        body = {}
 
-        fieldnames = {
-            'headers', 'params', 'cookies', 'timeout',
-            'allowredirects', 'verifyssl', 'data', 'files'
-        }
-        bodymethods = {'POST', 'PUT', 'PATCH'}
-
-        if method.value in bodymethods:
-            for k,v in kwargs.items():
-                if k in fieldnames:
-                    fields[k] = v
-                else:
-                    body[k] = v
-        else:
-            # for GET/HEAD/OPTIONS, put non-field kwargs into params
-            extparams = kwargs.get('params', {})
-            newparams = {}
-            for k, v in kwargs.items():
-                if k in fieldnames:
-                    if k == 'params':
-                        continue
-                    fields[k] = v
-                else:
-                    newparams[k] = v
-
-            # merge all params
-            if (newparams or extparams):
-                params = {**extparams, **newparams}
-                fields['params'] = params
-
-        return (fields, body)
-
-    def _substitutepath(self, path: t.Optional[str] = None, **kwargs) -> tuple[t.Optional[str], t.List[str]]:
-        """Substitute path parameters using string formatting."""
-        if not path:
-            return path, []
-
-        import string
-        formatter = string.Formatter()
-
-        try:
-            consumed = [fname for _, fname, _, _ in formatter.parse(path) if fname]
-            return path.format(**kwargs), consumed
-        except KeyError as e:
-            raise ValueError(f"Missing path parameter: {e}")
-
-    def _resolvepathargs(self, path: t.Optional[str] = None, *args, **kwargs) -> dict:
-        """Extract positional args into kwargs based on path parameter names."""
-        if (not path) or (not args):
-            return kwargs
-
-        import string
-        formatter = string.Formatter()
-        pathparams = [pname for _, pname, _, _ in formatter.parse(path) if pname]
-
-        result = kwargs.copy()
-
-        for i, arg in enumerate(args):
-            if (i < len(pathparams)):
-                result[pathparams[i]] = arg
-
-        return result
-
-    def _applymethodconfig(self, request: RequestModel, config: MethodConfig) -> RequestModel:
-        """Apply method-specific headers, cookies, timeout, retries to request."""
-        constructs = {
-            'headers': request.headers.copy(),
-            'cookies': request.cookies.copy(),
-            'timeout': request.timeout,
-            #! 'retries': request.retries // currently, retries are not in the RequestModel
-        }
-        if config.headers:
-            if config.headermode == MergeMode.MERGE:
-                constructs['headers'].update(config.headers)
-            elif config.headermode == MergeMode.OVERWRITE:
-                constructs['headers'] = config.headers
-
-        if config.cookies:
-            if config.cookiemode == MergeMode.MERGE:
-                constructs['cookies'].update(config.cookies)
-            elif config.cookiemode == MergeMode.OVERWRITE:
-                constructs['cookies'] = config.cookies
-
-        if config.timeout is not None:
-            constructs['timeout'] = config.timeout
-
-        return request.model_copy(update=constructs)
-
-    def _createboundmethod(self, method: t.Callable) -> BoundMethod:
-        methodconfig = getattr(method, '_methodconfig')
-
-        def bound(*args, noexec: bool = False, **kwargs):
-            # preprocess request data if configured
-            if methodconfig.preprocess:
-                kwargs = methodconfig.preprocess(kwargs)
-
-            # extract args into kwargs based on path parameter order
-            kwargs = self._resolvepathargs(methodconfig.path, *args, **kwargs)
-
-            # substitute path params
-            path, consumed = self._substitutepath(methodconfig.path, **(kwargs or {}))
-
-            # remove consumed parameters
-            for kwarg in consumed:
-                kwargs.pop(kwarg, None)
-
-            # build request
-            request = self._buildrequest(
-               method=methodconfig.method,
-               path=path,
-               **(kwargs or {})
-            )
-
-            # apply method config
-            request = self._applymethodconfig(request, methodconfig)
-
-            if self._backend:
-                request = self._backend.formatrequest(request, kwargs)
-
-
-            response = self._client._engine.send(request, noexec=noexec)
-
-            if isinstance(response, RequestModel):
-                return response
-
-            if self._backend:
-                processed = self._backend.processresponse(response)
-            else:
-                processed = response
-
-            if methodconfig.postprocess:
-                processed = methodconfig.postprocess(processed)
-
-            return processed
-
-        bound.__name__ = method.__name__
-        bound.__doc__ = method.__doc__
-        setattr(bound, '_methodconfig', methodconfig)
-
-        return BoundMethod(bound, self, methodconfig)
+    def _createboundmethod(self, method: t.Callable) -> 'BoundMethod':
+        from clientfactory.core.utils.discover import createboundmethod
+        getengine = lambda p: p._client._engine
+        getbackend = lambda p: p._backend
+        baseurl = self.baseurl if self.baseurl is not None else self._client.baseurl
+        return createboundmethod(
+            method=method,
+            parent=self,
+            getengine=getengine,
+            getbackend=getbackend,
+            baseurl=baseurl,
+            resourcepath=self.path
+        )
 
     def addmethod(self, method: t.Callable, name: t.Optional[str] = None) -> None:
         """Add method to resource."""

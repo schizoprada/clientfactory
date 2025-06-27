@@ -46,27 +46,3 @@ from .auths import (
 )
 
 from .logs import log
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# filter out pydantic warnings for models
-def HeyPydanticSTFU():
-    import re, warnings
-    warnings.filterwarnings(
-        "ignore",
-        category=UserWarning,
-        module=r"pydantic(\.|$)"
-    )
-
-HeyPydanticSTFU()

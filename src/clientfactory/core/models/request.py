@@ -274,7 +274,7 @@ class ExecutableRequest(RequestModel):
         return self.engine.send(self, noexec=False)
 
 
-_UNSET: t.Any = object() # sentinel
+from clientfactory.core.utils.typed import UNSET
 
 class Param(sex.Field):
     """
@@ -288,7 +288,7 @@ class Param(sex.Field):
     def __init__(
         self,
         name: t.Optional[str] = None,
-        required: bool = _UNSET,
+        required: bool = UNSET[False],
         default: t.Any = None,
         transform: t.Optional[t.Callable] = None,
         source: t.Optional[str] = None,
@@ -297,10 +297,10 @@ class Param(sex.Field):
         choices: t.Optional[t.List[t.Any]] = None,
         mapping: t.Optional[t.Dict] = None,
         mapper: t.Optional[t.Callable] = None,
-        keysaschoices: bool = _UNSET,
-        valuesaschoices: bool = _UNSET,
-        transient: bool = _UNSET,
-        conditional: bool = _UNSET,
+        keysaschoices: bool = UNSET[True],
+        valuesaschoices: bool = UNSET[False],
+        transient: bool = UNSET[False],
+        conditional: bool = UNSET[False],
         dependencies: t.Optional[t.List[str]] = None,
         conditions: t.Optional[t.Dict[str, t.Callable]] = None,
         allownone: bool = True,
@@ -331,12 +331,12 @@ class Param(sex.Field):
 
         # track explicit attrs before resolution
         for attr, value in constructing.items():
-            if (value is not _UNSET) and (value is not None):
+            if (value is not UNSET) and (value is not None):
                 self._explicit.add(attr)
 
         # resolve class attributes or remove if unset
         for attr in sex.BaseField.__constructs__:
-            if (constructing[attr] is None) or (constructing[attr] is _UNSET):
+            if (constructing[attr] is None) or (constructing[attr] is UNSET):
                 if hasattr(self.__class__, attr):
                     cval = getattr(self.__class__, attr)
                     if cval is not None:

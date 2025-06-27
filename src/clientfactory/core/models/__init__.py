@@ -2,6 +2,17 @@
 """
 ...
 """
+# filter out pydantic warnings for models
+def HeyPydanticSTFU():
+    import re, warnings
+    warnings.filterwarnings(
+        "ignore",
+        category=UserWarning,
+        module=r"pydantic(\.|$)"
+    )
+
+HeyPydanticSTFU()
+
 from .enums import (
     HTTPMethod, AuthType, BackendType,
     PayloadType, SessionType, EngineType,

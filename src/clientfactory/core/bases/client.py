@@ -19,11 +19,10 @@ from clientfactory.core.bases.engine import BaseEngine
 from clientfactory.core.bases.auth import BaseAuth
 from clientfactory.core.bases.declarative import Declarative
 from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
-from clientfactory.core.models.methods import BoundMethod
 
 if t.TYPE_CHECKING:
     from clientfactory.core.bases.resource import BaseResource
-
+    from clientfactory.core.models.methods import BoundMethod
 
 class BaseClient(abc.ABC, Declarative):
     """
@@ -117,175 +116,37 @@ class BaseClient(abc.ABC, Declarative):
         self._closed = True
 
     ## concretes ##
-    def _substitutepath(self, path: t.Optional[str] = None, **kwargs) -> tuple[t.Optional[str], t.List[str]]:
-        """Substitute path parameters using string formatting."""
-        if not path:
-            return path, []
 
-        import string
-        formatter = string.Formatter()
-
-        try:
-            consumed = [fname for _, fname, _, _ in formatter.parse(path) if fname]
-            return path.format(**kwargs), consumed
-        except KeyError as e:
-            raise ValueError(f"Missing path parameter: {e}")
-
-    def _separatekwargs(self, method: HTTPMethod, **kwargs) -> tuple[dict, dict]:
-        """Separate kwargs into request fields and body data based on HTTP method."""
-        fields = {}
-        body = {}
-
-        fieldnames = {
-            'headers', 'params', 'cookies', 'timeout',
-            'allowredirects', 'verifyssl', 'data', 'files'
-        }
-        bodymethods = {'POST', 'PUT', 'PATCH'}
-
-        if method.value in bodymethods:
-            for k,v in kwargs.items():
-                if k in fieldnames:
-                    fields[k] = v
-                else:
-                    body[k] = v
-        else:
-            fields = kwargs
-
-        return (fields, body)
-
-    def _resolvepathargs(self, path: t.Optional[str] = None, *args, **kwargs) -> dict:
-        """Extract positional args into kwargs based on path parameter names."""
-        if (not path) or (not args):
-            return kwargs
-
-        import string
-        formatter = string.Formatter()
-        pathparams = [pname for _, pname, _, _ in formatter.parse(path) if pname]
-
-        result = kwargs.copy()
-
-        for i, arg in enumerate(args):
-            if (i < len(pathparams)):
-                result[pathparams[i]] = arg
-
-        return result
-
-    def _buildrequest(
-        self,
-        method: t.Union[str, HTTPMethod],
-        path: t.Optional[str] = None,
-        **kwargs: t.Any
-    ) -> RequestModel:
-        """Build request for client-level method"""
-        if isinstance(method, str):
-            method = HTTPMethod(method.upper())
-
-        baseurl = self.baseurl.rstrip('/')
-
-        if path:
-            url = f"{baseurl}/{path.lstrip('/')}"
-        else:
-            url = baseurl
-
-        fields, body = self._separatekwargs(method, **kwargs)
-
-        if body:
-            return RequestModel(
-                method=method,
-                url=url,
-                json=body,
-                **fields
-            )
-
-        return RequestModel(
+    def _createboundmethod(self, method: t.Callable) -> 'BoundMethod':
+        from clientfactory.core.utils.discover import createboundmethod
+        getengine = lambda p: p._engine
+        getbackend = lambda p: p._backend
+        return createboundmethod(
             method=method,
-            url=url,
-            **fields
+            parent=self,
+            getengine=getengine,
+            getbackend=getbackend, # type: ignore
+            baseurl=self.baseurl,
+            resourcepath=None
         )
-
-    def _applymethodconfig(self, request: RequestModel, config: MethodConfig) -> RequestModel:
-        """Apply method-specific headers, cookies, timeout, retries to request."""
-        constructs = {
-            'headers': request.headers.copy(),
-            'cookies': request.cookies.copy(),
-            'timeout': request.timeout,
-            #'retries': request.retries // currently, retries are not in the RequestModel
-        }
-        if config.headers:
-            if config.headermode == MergeMode.MERGE:
-                constructs['headers'].update(config.headers)
-            elif config.headermode == MergeMode.OVERWRITE:
-                constructs['headers'] = config.headers
-
-        if config.cookies:
-            if config.cookiemode == MergeMode.MERGE:
-                constructs['cookies'].update(config.cookies)
-            elif config.cookiemode == MergeMode.OVERWRITE:
-                constructs['cookies'] = config.cookies
-
-        if config.timeout is not None:
-            constructs['timeout'] = config.timeout
-
-        return request.model_copy(update=constructs)
-
-    def _createboundmethod(self, method: t.Callable) -> BoundMethod:
-        methodconfig = getattr(method, '_methodconfig')
-
-        def bound(*args, noexec: bool = False, **kwargs):
-            # preprocess request data if configured
-            if methodconfig.preprocess:
-                kwargs = methodconfig.preprocess(kwargs)
-
-            # extract args into kwargs based on path parameter order
-            kwargs = self._resolvepathargs(methodconfig.path, *args, **kwargs)
-
-            # substitute path params
-            path, consumed = self._substitutepath(methodconfig.path, **(kwargs or {}))
-
-            # remove consumed parameters
-            for kwarg in consumed:
-                kwargs.pop(kwarg, None)
-
-            # build request
-            request = self._buildrequest(
-               method=methodconfig.method,
-               path=path,
-               **(kwargs or {})
-            )
-
-            # apply method config
-            request = self._applymethodconfig(request, methodconfig)
-
-            if self._backend:
-                request = self._backend.formatrequest(request, kwargs)
-
-            response = self._engine.send(request, noexec=noexec)
-
-            if isinstance(response, RequestModel):
-                return response
-
-            if self._backend:
-                processed = self._backend.processresponse(response)
-            else:
-                processed = response
-
-            if methodconfig.postprocess:
-                processed = methodconfig.postprocess(processed)
-
-            return processed
-
-        bound.__name__ = method.__name__
-        bound.__doc__ = method.__doc__
-        setattr(bound, '_methodconfig', methodconfig)
-        return BoundMethod(bound, self, methodconfig)
 
     def _initmethods(self) -> None:
         """Initialize client-level HTTP methods."""
+        from clientfactory.core.models.methods import BoundMethod
         for attrname in dir(self.__class__):
             if attrname.startswith('_'):
                 continue
 
             attr = getattr(self.__class__, attrname)
+
+            # handle pre-bound methods from decorators
+            if isinstance(attr, BoundMethod):
+                if not attr._resolved:
+                    attr._resolvebinding(self)
+                setattr(self, attrname, attr)
+                continue
+
+            # Legacy: undecorated methods with _methodconfig
             if (attr and callable(attr) and hasattr(attr, '_methodconfig')):
                 bound = self._createboundmethod(attr)
                 setattr(self, attrname, bound)
@@ -320,6 +181,8 @@ class BaseClient(abc.ABC, Declarative):
     def __exit__(self, exc_type: t.Any, exc_val: t.Any, exc_tb: t.Any) -> None:
         """Exit context manager."""
         self.close()
+
+
 
     ## operator overloads ##
     #! implement later

@@ -98,6 +98,8 @@ class SearchResource(Resource):
 
     def _generatesearchmethod(self) -> None:
         """Generate the search method."""
+        from clientfactory.core.utils.discover import createboundmethod
+
         # create a method config
         methodconfig = MethodConfig(
             name=self.searchmethod,
@@ -114,65 +116,35 @@ class SearchResource(Resource):
             postprocess=self.postprocess
         )
 
-        def searchmethod(*args, noexec: bool = False, **kwargs) -> t.Any:
-            log.info(f"""
-                SearchResource.searchmethod:
-                    Initial Args: {args}
-                    Initial Kwargs: {kwargs}
-                """)
-            # extract args into kwargs based on path parameter order
-            kwargs = self._resolvepathargs(self.path, *args, **kwargs)
-            log.info(f"SearchResource.searchmethod: kwargs after path resolution = {kwargs}")
-
-            # validate params thru payload if defined
-            if self.payload is not None:
-                pinstance = self._getpayloadinstance()
-                if pinstance is not None:
-                    validated = pinstance.validate(kwargs)
-                else:
-                    validated = kwargs
-            else:
-                validated = kwargs
-
-            log.info(f"SearchResource.searchmethod: kwargs after validation = {validated}")
-
-
-            # substitute path parameters
-            path, consumed = self._substitutepath("", **kwargs) #!
-
-            # remove consumed parameters from validated data
-            for kwarg in consumed:
-                validated.pop(kwarg, None)
-
-            # build request
-            request = self._buildrequest(method=self.method, path=path, **validated)
-
-            # apply method config
-            request = self._applymethodconfig(request, methodconfig)
-
-            # format through backend if available
-            if self._backend:
-                request = self._backend.formatrequest(request, kwargs)
-
-            # send thru engine
-            response = self._client._engine.send(request, noexec=noexec)
-            if isinstance(response, RequestModel):
-                return response
-
-            # process thru backend if available
-            if self._backend:
-                return self._backend.processresponse(response)
-            return response
-
-        # set method name and register
+        def searchmethod(): pass # dummy
+        searchmethod._methodconfig = methodconfig # type: ignore
         searchmethod.__name__ = self.searchmethod
         searchmethod.__doc__ = self._generatedocstring()
 
+        def validatepayload(kwargs):
+            if self.payload is not None:
+                pinstance = self._getpayloadinstance()
+                if pinstance is not None:
+                    return pinstance.validate(kwargs)
+            return kwargs
 
-        bound = BoundMethod(searchmethod, self, methodconfig)
+        getengine = lambda p: p._client._engine
+        getbackend = lambda p: p._backend
+        baseurl = self.baseurl if self.baseurl is not None else self._client.baseurl
+
+        bound = createboundmethod(
+            method=searchmethod,
+            parent=self,
+            getengine=getengine,
+            getbackend=getbackend,
+            baseurl=baseurl,
+            resourcepath=self.path,
+            validationstep=validatepayload,
+            pathoverride=""
+        )
 
         self._registermethod(bound, self.searchmethod)
-        # removed oncall logic
+
 
     def _resolveattributes(self, attributes: dict) -> None:
         log.debug(f"SearchResource._resolveattributes: received attributes={attributes}")

@@ -8,12 +8,14 @@ from __future__ import annotations
 import typing as t
 
 if t.TYPE_CHECKING:
-    from clientfactory.core.models import BoundMethod, MethodConfig
+    from clientfactory.core.models.config import MethodConfig
+    from clientfactory.core.models.methods import BoundMethod
     from clientfactory.core.bases import BaseEngine, BaseBackend, BaseResource, BaseClient
 
-EngineGetter = t.Callable[..., 'BaseEngine']
-BackendGetter = t.Callable[..., 'BaseBackend']
 ParentType = t.Union['BaseClient', 'BaseResource']
+EngineGetter = t.Callable[[ParentType], 'BaseEngine']
+BackendGetter = t.Callable[[ParentType], t.Optional['BaseBackend']]
+
 
 def createboundmethod(
     method: t.Callable,

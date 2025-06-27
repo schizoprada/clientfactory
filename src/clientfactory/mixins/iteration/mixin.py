@@ -31,7 +31,7 @@ class IterMixin:
 
     ## Private Methods ##
     ### Data Handling ###
-    def _separatekwargs(self, static: t.Optional[t.Dict[str, t.Any]], **kwargs) -> tuple[dict, dict]:
+    def _extractiterconf(self, static: t.Optional[t.Dict[str, t.Any]], **kwargs) -> tuple[dict, dict]:
         """
         Separate iteration configuration from static method parameters.
 
@@ -50,11 +50,11 @@ class IterMixin:
 
         Examples:
             # Underscore removes prefix for conflicts, keeps it otherwise
-            _separatekwargs(start=1, _start=100, _custom=True)
+            _extractiterconf(start=1, _start=100, _custom=True)
             # Returns: ({'start': 1}, {'start': 100, '_custom': True})
 
             # Static dict combined with other methods
-            _separatekwargs(static={'brand': 'nike'}, end=10, category='shoes')
+            _extractiterconf(static={'brand': 'nike'}, end=10, category='shoes')
             # Returns: ({'end': 10}, {'brand': 'nike', 'category': 'shoes'})
         """
         config = self._iterconfig.copy()
@@ -571,7 +571,7 @@ class IterMixin:
         param = self._normalizeparam(param)
 
         # Separate iteration config from static method parameters
-        iterconfig, staticparams = self._separatekwargs(static, **kwargs)
+        iterconfig, staticparams = self._extractiterconf(static, **kwargs)
 
         # Merge instance static params with call-specific static params
         # Call-specific params take precedence over instance params

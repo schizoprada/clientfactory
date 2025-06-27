@@ -13,7 +13,6 @@ from clientfactory.mixins.preparation.comps import PrepConfig
 if t.TYPE_CHECKING:
     from clientfactory.core.bases import BaseEngine, BaseClient, BaseBackend, BaseResource
 
-
 class PrepMixin:
     """Mixin to add request preparation capabilities to bound methods."""
 
@@ -75,43 +74,45 @@ class PrepMixin:
         print(f"DEBUG: No engine found!")
         raise AttributeError("No engine available for request preparation")
 
+    def _geturlparts(self, parent: t.Union['BaseClient', 'BaseResource']) -> tuple[str, t.Optional[str]]:
+        if hasattr(parent, '_client'):
+            baseurl = getattr(parent, 'baseurl', None) or parent._client.baseurl
+            resourcepath = getattr(parent, 'path', None)
+        else:
+            baseurl = parent.baseurl
+            resourcepath = None
+        return baseurl, resourcepath # type: ignore
+
     def _preparerequest(self, methodconfig: MethodConfig, *args, **kwargs) -> RequestModel:
         """Build request for preparation (mirrors bound method logic)."""
-        parent: t.Optional[t.Union['BaseClient', 'BaseResource']] = getattr(self, '_parent', None)
-        if parent is None:
-            raise AttributeError("No parent available for request building")
-
-        def getmethods(*attrs: str) -> list[t.Optional[t.Callable]]:
-            return list(getattr(parent, attr, None) for attr in attrs)
-
-        resolvepathargs, substitutepath, buildrequest, applymethodconfig = getmethods(
-            '_resolvepathargs', '_substitutepath', '_buildrequest', '_applymethodconfig'
+        from clientfactory.core.utils.request import (
+            resolveargs, substitute, buildrequest, applymethodconfig
         )
 
-        if methodconfig.preprocess:
-            kwargs = methodconfig.preprocess(kwargs)
+        parent: t.Optional[t.Union['BaseClient', 'BaseResource']] = getattr(self, '_parent', None)
+        if parent is None: raise AttributeError("No parent available for request building")
 
-        if resolvepathargs is not None:
-            kwargs = resolvepathargs(methodconfig.path, *args, **kwargs)
+        if methodconfig.preprocess: kwargs = methodconfig.preprocess(kwargs)
 
-        path, consumed = methodconfig.path, []
-        if substitutepath is not None:
-            path, consumed = substitutepath(methodconfig.path, **(kwargs or {}))
+        kwargs = resolveargs(methodconfig.path, *args, **kwargs)
+        path, consumed = substitute(methodconfig.path, **(kwargs or {}))
 
-        for kwarg in consumed:
-            kwargs.pop(kwarg, None)
+        for kwarg in consumed: kwargs.pop(kwarg, None)
 
-        if buildrequest is None:
-            raise AttributeError("Parent missing _buildrequest method")
+        baseurl, resourcepath = self._geturlparts(parent)
 
-        request: RequestModel = buildrequest(method=methodconfig.method, path=path, **(kwargs or {}))
+        request = buildrequest(
+            method=methodconfig.method,
+            baseurl=baseurl,
+            path=path,
+            resourcepath=resourcepath,
+            **(kwargs or {})
+        )
 
-        if applymethodconfig is not None:
-            request = applymethodconfig(request, methodconfig)
+        request =  applymethodconfig(request, methodconfig)
 
         backend: t.Optional['BaseBackend'] = getattr(parent, '_backend', None)
-        if backend is not None:
-            request = backend.formatrequest(request, kwargs)
+        if backend: request = backend.formatrequest(request, kwargs)
 
         return request
 

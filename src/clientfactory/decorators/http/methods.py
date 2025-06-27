@@ -10,6 +10,9 @@ import typing as t, functools as fn
 from clientfactory.core.models import HTTPMethod, MethodConfig, Payload, MergeMode
 from clientfactory.decorators.http.docs import DOCS
 
+if t.TYPE_CHECKING:
+    from clientfactory.core.models.methods import BoundMethod
+
 def _generatedocstring(config: MethodConfig, func: t.Callable) -> str:
     """Generate enhanced docstring for decorated method."""
     def _description() -> str:
@@ -148,7 +151,7 @@ def httpmethod(
     postprocess: t.Optional[t.Callable] = None,
     description: t.Optional[str] = None,
     **kwargs: t.Any
-) -> t.Callable[[t.Callable], t.Callable]:
+) -> t.Callable[[t.Callable], 'BoundMethod']:
     """
     Base HTTP method decorator with comprehensive configuration support.
 
@@ -174,7 +177,10 @@ def httpmethod(
     Raises:
         ValueError: For invalid decorator usage (e.g., GET with payload)
     """
-    def decorator(func: t.Callable) -> t.Callable:
+    def decorator(func: t.Callable) -> 'BoundMethod':
+        from clientfactory.core.utils.typed import UNSET
+        from clientfactory.core.models.methods import BoundMethod
+
         _validatemethodusage(method, payload, func)
 
         conf = _buildmethodconfig(
@@ -201,12 +207,14 @@ def httpmethod(
         if description or (payload and not func.__doc__):
             func.__doc__ = _generatedocstring(conf, func)
 
-        return func
+        bound = BoundMethod(func, UNSET, conf)
+
+        return t.cast('BoundMethod', bound)
 
     return decorator
 
 # HTTP method decorators
-def _createdecorator(method: HTTPMethod) -> t.Callable:
+def _createdecorator(method: HTTPMethod) -> t.Callable[..., t.Union['BoundMethod', t.Callable[[t.Callable], 'BoundMethod']]]:
     def decorator(funcorpath: t.Any = None, **kwargs):
         if callable(funcorpath):
             # no parentheses
