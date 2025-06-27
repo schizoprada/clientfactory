@@ -1,5 +1,27 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.26] -- *2025-06-27*
+* Redundancy removal and type hinting improvements
++ Universal Request Utilities: Consolidated duplicate logic across client/resource hierarchy
+- Extracted shared utilities to `core/utils/request/` for path handling, request building, and method configuration
+- Unified bound method creation logic in `core/utils/discover/binding.py`
+- Eliminated duplicate implementations of `_buildrequest`, `_separatekwargs`, `_substitutepath`, `_resolvepathargs`, `_applymethodconfig`
++ Enhanced Type Support: Perfect IDE integration for decorated HTTP methods
+- HTTP method decorators (`@get`, `@post`, etc.) now return properly typed `BoundMethod` objects
+- Full IDE support for mixin methods (`.prepare()`, `.iterate()`, `.cycle()`) on decorated endpoints
+- Deferred binding architecture with `UNSET` sentinel for decorator usage
++ Sentinel Value System: Advanced parameter handling with explicit vs implicit distinction
+- `UNSET` universal sentinel with subscript syntax for encoding defaults: `UNSET[False]`, `UNSET[list]`
+- Enhanced `Param` class with improved parameter resolution and class attribute inheritance
++ Developer Experience Improvements: Foundation for optimal IDE support
+- Added Pyright configuration utilities in `clientfactory.ide` for type checker optimization
+- Comprehensive test coverage for consolidated functionality and decorator behavior
+- Method name collision resolution (`IterMixin._separateiterconfig` vs request building)
++ Architecture Cleanup: Streamlined codebase with reduced technical debt
+- Removed redundant instance methods from `BaseClient` and `BaseResource`
+- Updated `PrepMixin` to use consolidated utilities directly
+- Eliminated circular dependencies and improved import structure
+
 ## [0.9.25] -- *2025-06-26*
 + Preparable Mixin: Interface for creating executable requests that can be prepared and executed later
 - Added PrepMixin class with .prepare() method for bound methods
