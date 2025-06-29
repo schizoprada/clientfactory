@@ -112,6 +112,13 @@ class RequestModel(PydModel):
         #print(f"DEBUG | final kwargs: {kwargs}")
         return kwargs
 
+    def toexecutable(self, engine: t.Any) -> 'ExecutableRequest':
+        """Convert this request to an executable request."""
+        if engine is None: raise ValueError()
+        constructs = self.model_dump()
+        constructs['engine'] = engine
+        return ExecutableRequest(**constructs)
+
     ## computed fields ##
     @computedfield
     @property
@@ -150,6 +157,40 @@ class RequestModel(PydModel):
             return HTTPMethod(v.upper())
         except Exception as e:
             raise ValueError(f"Invalid HTTP Method '{v}'")
+
+    ## dunders ##
+    def __hash__(self) -> int:
+        """Generate hash based on request signature"""
+        headers = tuple(sorted(self.headers.items()))
+        cookies = tuple(sorted(self.cookies.items()))
+        params = tuple(sorted(self.params.items()))
+        _json = str(self.json) if self.json else None
+        data = str(self.data) if self.data else None,
+        return hash((
+            self.method,
+            self.url,
+            headers,
+            cookies,
+            params,
+            _json,
+            data,
+            self.timeout
+        ))
+
+    def __eq__(self, other: t.Any) -> bool:
+        """Check equality based on request signature"""
+        if not isinstance(other, RequestModel):
+            return False
+        return all((
+            self.method == other.method,
+            self.url == other.url,
+            self.headers == other.headers,
+            self.params == other.params,
+            self.json == other.json,
+            self.data == other.data,
+            self.cookies == other.cookies,
+            self.timeout == other.timeout
+        ))
 
 class ResponseModel(PydModel):
     """

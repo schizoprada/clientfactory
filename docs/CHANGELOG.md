@@ -1,5 +1,44 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.28] -- *2025-06-29*
+* Bulk Operations Mixin: Foundation for multi-request coordination with dependency resolution
++ BulkMixin Implementation: Core functionality for batching and orchestrating multiple requests
+- Request collection and identification using hash-based IDs for reliable tracking
+- Sequential execution with dependency resolution and topological ordering
+- Error handling strategies: continue, break, or raise with configurable behavior
+- Response aggregation modes: all, first, last, success, failure, count
+- Transaction rollback support with custom rollback hooks for sequential operations
+- Builder pattern configuration API for fluent bulk operation setup
+- Support for both RequestModel and ExecutableRequest objects in bulk operations
++ Enhanced Request Models: Hash and equality support for reliable request identification
+- Implemented __hash__ and __eq__ methods on RequestModel for consistent bulk tracking
+- Added toexecutable() convenience method for RequestModel to ExecutableRequest conversion
+- Hash-based request identification ensures reliable dependency tracking and response collection
++ Bulk Operation Features: Comprehensive configuration and execution control
+- Configurable execution modes: sequential (with dependencies) and parallel (basic)
+- Flexible error handling with built-in handlers (RAISE, BREAK, CONTINUE) and custom callbacks
+- Response collection with selective aggregation and error tracking
+- Execution delays for rate limiting and performance tuning
+- Thread pool configuration for parallel execution scenarios
+
+**Deferred Features**: Advanced capabilities postponed for future implementation
+- Parallel execution with dependency support (complex coordination required)
+- Transaction rollbacks in parallel mode (thread-safety complexity)
+- Advanced response transformation and custom aggregation functions
+- Configuration inheritance from parent methods to individual requests
+
+**Architecture Considerations**: Current implementation may benefit from relocation
+- BulkMixin currently attached to BoundMethod but better suited for Client/Resource level
+- Non-homogeneous request batching suggests client-wide coordination rather than method-specific
+- Dependency resolution between different endpoints more naturally fits client orchestration
+
+**Known Limitations**: Simplified implementations for initial release
+- Parallel mode disables dependencies and rollbacks for complexity management
+- Basic aggregation modes only - no custom transformation pipelines
+- Request configuration handled at request object level rather than bulk operation level
+
+**Developer Experience**: Foundation established for complex request orchestration workflows with room for architectural refinement in future releases
+
 ## [0.9.27] -- *2025-06-27*
 * Mixin Interoperability System: Chainable mixin architecture enabling fluent API composition
 + Mixer Orchestration Framework: Central coordinator for mixin chaining and execution
