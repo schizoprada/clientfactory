@@ -229,6 +229,6 @@ pip install clientfactory
 ```
 
 ## Additional Documentation
-- [Architecture](docs/ARCHITECTURE.md)
-- [API Reference](docs/API.md)
-- [Examples](docs/EXAMPLES.md)
+- [Architecture](ARCHITECTURE.md)
+- [API Reference](API.md)
+- [Examples](EXAMPLES.md)
