@@ -158,8 +158,8 @@ class SearchResource(Resource):
         # method config attributes
         self.headers = attributes.get('headers')
         self.cookies = attributes.get('cookies')
-        self.headermode = attributes.get('headermode', MergeMode.MERGE)
-        self.cookiemode = attributes.get('cookiemode', MergeMode.MERGE)
+        self.headermode = attributes.get('headermode', MergeMode.MERGE) or MergeMode.MERGE
+        self.cookiemode = attributes.get('cookiemode', MergeMode.MERGE) or MergeMode.MERGE
         self.timeout = attributes.get('timeout')
         self.retries = attributes.get('retries')
         self.preprocess = attributes.get('preprocess')
