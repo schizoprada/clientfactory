@@ -92,6 +92,8 @@ class Declarative(metaclass=DeclarativeMeta):
                 collected[name] = provided[name]
             elif name in declared:
                 collected[name] = declared[name]
+            elif hasattr(self.__class__, name):
+                collected[name] = getattr(self.__class__, name)
             elif name in defaults:
                 collected[name] = defaults[name]
             else:

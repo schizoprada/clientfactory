@@ -24,6 +24,8 @@ def _transformtoresource(
     """
     Transform a target class into the specified resource type.
     """
+    #print(f"DEBUG _transformtoresource: target = {target}")
+    #print(f"DEBUG _transformtoresource: kwargs = {kwargs}")
     # collect attributes from target first
     classdict = {
         attrname: getattr(target, attrname)
@@ -32,24 +34,39 @@ def _transformtoresource(
             attrname in ('__doc__', '__module__', '__qualname__', '__annotations__') or
             (attrname in [f'__{comp}__' for comp in variant.__declcomps__]))
     }
+    #print(f"DEBUG _transformtoresource: classdict payload = {classdict.get('payload')}")
+    #print(f"DEBUG _transformtoresource: kwargs.get('payload') = {kwargs.get('payload')}")
+
+    noneor = lambda k: kwargs.get(k) if k in kwargs and kwargs[k] is not None else classdict.get(k)
+
+    # separate config attributes from class attributes
+    declconfs = variant.__declconfs__ if hasattr(variant, '__declconfs__') else set()
+    declattrs = variant.__declattrs__ if hasattr(variant, '__declattrs__') else set()
 
     # build config if not provided
     if config is None:
         # Merge decorator params with class attributes, decorator params take precedence
         confkwargs = {
-            k:v for k,v in {
-                'name': (name or classdict.get('name') or target.__name__.lower()),
-                'path': (path or classdict.get('path') or (name or target.__name__.lower())),
-                'payload': kwargs.get('payload') or classdict.get('payload'),
-                'method': kwargs.get('method') or classdict.get('method'),
-                **kwargs
-            }.items() if v is not None
+            'name': (name or classdict.get('name') or target.__name__.lower()),
+            'path': (path or classdict.get('path') or (name or target.__name__.lower())),
         }
+
+        for attr in declconfs:
+            value = noneor(attr)
+            if value is not None:
+                confkwargs[attr] = value
+
 
         if variant == SearchResource:
             config = SearchResourceConfig(**confkwargs)
         else:
             config = ResourceConfig(**confkwargs)
+
+    for attr in declattrs:
+        value = noneor(attr)
+        if value is not None:
+            classdict[attr] = value
+
 
     classdict['_resourceconfig'] = config
 
@@ -182,10 +199,15 @@ def searchable(
         @searchable(config=SearchConfig)
         class UserSearch: pass
     """
+    from clientfactory.core.utils.discover import collect
+    from clientfactory.core.utils.parameters import construct
     def decorator(target: t.Type) -> t.Type[SearchResource]:
-        return _transformtoresource(
-            target=target,
-            variant=SearchResource,
+        print(f"DEBUG searchable decorator: target = {target}")
+        print(f"DEBUG searchable decorator: dir(target) = {[attr for attr in dir(target) if not attr.startswith('_')]}")
+        print(f"DEBUG searchable decorator: target.payload = {getattr(target, 'payload', 'NOT_FOUND')}")
+
+        sigparams = construct.sigparams(
+            filternone=True,
             config=config,
             name=name,
             path=path,
@@ -200,7 +222,20 @@ def searchable(
             timeout=timeout,
             retries=retries,
             preprocess=preprocess,
-            postprocess=postprocess,
+            postprocess=postprocess
+        )
+        #print(f"DEBUG searchable decorator: sigparams = {sigparams}")
+
+        declared = collect.classdeclarations(target, explicit=SearchResource.__declattrs__)
+        #print(f"DEBUG searchable decorator: declared = {declared}")
+
+        sigparams.update(declared)
+        #print(f"DEBUG searchable decorator: (after update) sigparams = {sigparams}")
+
+        return _transformtoresource(
+            target=target,
+            variant=SearchResource,
+            **sigparams,
             **kwargs
         )
 

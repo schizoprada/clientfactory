@@ -5,7 +5,7 @@ Algolia Backend Implementation
 Backend for Algolia search API with index management and parameter handling.
 """
 from __future__ import annotations
-import typing as t, urllib.parse
+import typing as t, urllib.parse, json as _json
 
 from pydantic import field_validator as fieldvalidator
 from schematix import Field, Schema
@@ -24,7 +24,9 @@ class AlgoliaConfig(BackendConfig):
     urlbase: str = "https://{appid}-dsn.algolia.net"
     contenttype: str = 'application/json'  # Configurable content type
     encodeparams: bool = False  # Whether to URL encode params
+    paramdelimiter: str = '&'
     mergeresults: bool = False  # Whether to merge multi-index results
+
 
     @fieldvalidator('urlbase')
     @classmethod
@@ -74,8 +76,8 @@ class AlgoliaBackend(BaseBackend):
     Handles Algolia's specific API format, authentication, and response processing.
     """
     __declaredas__: str = 'algolia'
-    __declattrs__: set[str] = BaseBackend.__declattrs__ | {'appid', 'apikey', 'index', 'indices', 'facetsmap', 'numerics'}
-    __declconfs__: set[str] = BaseBackend.__declconfs__ | {'urlbase', 'agent', 'indices', 'index', 'appid', 'apikey', 'content'}
+    __declattrs__: set[str] = BaseBackend.__declattrs__ | {'appid', 'apikey', 'index', 'indices', 'facetsmap', 'numerics', 'facets'}
+    __declconfs__: set[str] = BaseBackend.__declconfs__ | {'urlbase', 'agent', 'indices', 'index', 'appid', 'apikey', 'content', 'encodeparams', 'paramdelimiter'}
 
     def __init__(
         self,
@@ -101,6 +103,8 @@ class AlgoliaBackend(BaseBackend):
         self.index: str = attributes.get('index', '')
         self.facetsmap: dict = attributes.get('facetsmap', {})
         self.numerics: list = attributes.get('numerics', [])
+        self.facets: set = set(attributes.get('facets', []) or [])
+
 
     def _buildfacetfilters(self, data: dict, facetsmap: t.Optional[dict] = None) -> list:
         """Build standard Algolia facet filters from data.
@@ -121,7 +125,12 @@ class AlgoliaBackend(BaseBackend):
                 continue
 
             # Get the facet name (use mapping if provided, otherwise use key as-is)
-            facetname = mapping.get(k, k)
+            if k in (self.facets or set()):
+                facetname = k
+            elif k in mapping:
+               facetname = mapping[k]
+            else:
+               continue # not a facet field
 
             if isinstance(v, list):
                 # Multiple values for same facet (OR logic within the group)
@@ -194,19 +203,57 @@ class AlgoliaBackend(BaseBackend):
                 params[camel] = data[key]
             elif (camel in data):
                 params[camel] = data[camel]
-        return params
+        return {k:v for k,v in params.items() if v is not None}
 
     def _convertparams(self, data: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         """Convert search parameters to Algolia format."""
+        print(f"""
+            DEBUG AlgoliaBackend._convertparams
+            -----------------------------------
+
+            data: {data}
+
+            """)
         params = self._paramschema.transform(data)
 
         if ('offset' in data) and ('limit' in data):
             params['page'] = int(data['offset']) // int(data['limit'])
 
-        return params
+        print(f"""
+            DEBUG AlgoliaBackend._convertparams
+            -----------------------------------
+
+            params: {params}
+
+            """)
+
+        return {k:v for k,v in params.items() if v is not None}
+
+    def _urlencode(self, parameters: dict) -> str:
+        """URL encode parameters with configurable delimiter."""
+        if self._config.paramdelimiter == '&':
+            return urllib.parse.urlencode(parameters)
+
+        encode = lambda v: urllib.parse.quote_plus(str(v))
+        pair = lambda k, v: f"{k}={v}"
+        encoded = [
+            pair(encode(k), encode(v))
+            for k,v in parameters.items()
+        ]
+        return self._config.paramdelimiter.join(encoded)
 
     def _formatrequest(self, request: RequestModel, data: t.Dict[str, t.Any]) -> RequestModel:
         """Format request for Algolia API."""
+        print(f"""
+            DEBUG AlgoliaBackend._formatrequest
+            ___________________________________
+
+            request: {request}
+
+
+            data: {data}
+
+            """)
         if not data:
             return request
 
@@ -235,10 +282,26 @@ class AlgoliaBackend(BaseBackend):
 
 
         # encode if configured
+        print(f"""
+            DEBUG AlgoliaBackend._formatrequest
+            ------------------------------------
+            self._config.encodeparams = {self._config.encodeparams}
+
+            parameters = {parameters}
+            """)
         if self._config.encodeparams:
-            params = urllib.parse.urlencode(parameters)
+            params = self._urlencode(parameters)
         else:
             params = parameters
+
+        print(f"""
+            DEBUG AlgoliaBackend._formatrequest
+            ------------------------------------
+            self._config.encodeparams = {self._config.encodeparams}
+
+            params = {params}
+            """)
+
 
         # build requests array for multi-index support
         requests = [
@@ -255,7 +318,8 @@ class AlgoliaBackend(BaseBackend):
 
         update = {
             'url': url,
-            'json': payload,
+            'json': None,
+            'data': _json.dumps(payload),
             'headers': {
                 **request.headers,
                 'X-Algolia-Application-Id': self.appid,

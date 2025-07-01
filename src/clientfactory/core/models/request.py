@@ -344,6 +344,7 @@ class Param(sex.Field):
         conditional: bool = UNSET[False],
         dependencies: t.Optional[t.List[str]] = None,
         conditions: t.Optional[t.Dict[str, t.Callable]] = None,
+        validator: t.Optional[t.Callable] = None,
         allownone: bool = True,
         **kwargs: t.Any
     ) -> None:
@@ -367,6 +368,7 @@ class Param(sex.Field):
             'conditional': conditional,
             'dependencies': dependencies,
             'conditions': conditions,
+            'validator': validator,
             'allownone': allownone
         }
 

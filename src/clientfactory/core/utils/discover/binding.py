@@ -56,14 +56,15 @@ def createboundmethod(
     methodconfig: 'MethodConfig' = getattr(method, '_methodconfig')
 
     def bound(*args, noexec: bool = False, **kwargs):
+        print(f"DEBUG bound: kwargs = {kwargs}")
         if methodconfig.preprocess:
             kwargs = methodconfig.preprocess(kwargs)
-
+            print(f"DEBUG bound: (after preprocess) kwargs = {kwargs}")
         kwargs = resolveargs(methodconfig.path, *args, **kwargs)
-
+        print(f"DEBUG bound: (after resolveargs) kwargs = {kwargs}")
         if validationstep:
             kwargs = validationstep(kwargs)
-
+            print(f"DEBUG bound: (after validationstep) kwargs = {kwargs}")
         targetpath = pathoverride if pathoverride is not None else methodconfig.path
         path, consumed = substitute(targetpath, **kwargs)
 

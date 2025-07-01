@@ -58,9 +58,12 @@ class SearchResource(Resource):
         self._config: SearchResourceConfig = self._resolveconfig(SearchResourceConfig, config, **kwargs) # type: ignore
 
         # 3. resolve attributes
+        print(f"DEBUG SearchResource.__init__: kwargs = {kwargs}")
         attrs = self._collectattributes(**kwargs)
+        print(f"DEBUG SearchResource.__init__: _collectattributes result = {attrs}")
+        print(f"DEBUG SearchResource.__init__: attrs payload = {attrs.get('payload')}")
         self._resolveattributes(attrs)
-
+        print(f"DEBUG SearchResource.__init__: self.payload after resolve = {self.payload}")
         self._client: 'BaseClient' = client
         self._methods: t.Dict[str, t.Callable] = {}
         self._children: t.Dict[str, 'BaseResource'] = {}
@@ -122,10 +125,14 @@ class SearchResource(Resource):
         searchmethod.__doc__ = self._generatedocstring()
 
         def validatepayload(kwargs):
+            print(f"DEBUG validatepayload: kwargs = {kwargs}")
             if self.payload is not None:
                 pinstance = self._getpayloadinstance()
+                print(f"DEBUG validatepayload: pinstance = {pinstance}")
                 if pinstance is not None:
-                    return pinstance.validate(kwargs)
+                    result =  pinstance.validate(kwargs)
+                    print(f"DEBUG validatepayload: result = {result}")
+                    return result
             return kwargs
 
         getengine = lambda p: p._client._engine
