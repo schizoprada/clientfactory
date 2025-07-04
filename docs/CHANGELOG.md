@@ -1,5 +1,16 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.30] -- *2025-07-04*
+* Critical AlgoliaBackend fixes for production-ready faceted search
+- Fixed parameter serialization to use JSON format with double quotes instead of Python's single quotes
+- Corrected multi-request array generation to match Algolia InstantSearch pattern
+- Added proper facet exclusion logic for UI facet count generation
+- Fixed numeric filters to use array format instead of comma-separated strings
+- Enhanced `_buildrequestarray()` to create requests for each filtered facet plus special price_i handling
+- Resolved URL encoding conflicts that prevented facetFilters from working correctly
+- Added comprehensive debug logging for request array generation troubleshooting
+- Algolia searches now properly return filtered results matching UI behavior
+
 ## [0.9.29] -- *2025-07-03*
 * Temporary bandaid fix for declared attribute resolution on resource decorators
 * Enhanced engine session override system for dynamic session switching without overhead

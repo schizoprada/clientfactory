@@ -25,7 +25,7 @@ class AlgoliaConfig(BackendConfig):
     encodeagent: bool = False # new
     urlbase: str = "https://{appid}-dsn.algolia.net"
     contenttype: str = 'application/json'  # Configurable content type
-    encodeparams: bool = False  # Whether to URL encode params
+    encodeparams: bool = True  # Whether to URL encode params
     paramdelimiter: str = '&'
     mergeresults: bool = False  # Whether to merge multi-index results
     multirequest: bool = True # build multi-request array
@@ -197,7 +197,14 @@ class AlgoliaBackend(BaseBackend):
 
     def _urlencode(self, parameters: dict) -> str:
         """URL encode parameters with configurable delimiter."""
-        serialize = lambda v: str(v).lower() if isinstance(v, bool) else str(v)
+        def serialize(v: t.Any) -> str:
+            import json
+            if isinstance(v, bool):
+                return str(v).lower()
+            elif isinstance(v, (list, dict)):
+                return json.dumps(v)
+            else:
+                return str(v)
 
         if self._config.paramdelimiter == '&':
             serialized = {k: serialize(v) for k, v in parameters.items()}
@@ -212,36 +219,135 @@ class AlgoliaBackend(BaseBackend):
         return self._config.paramdelimiter.join(encoded)
 
     def _buildrequestarray(self, indices: list, parameters: dict) -> list:
-        """..."""
+        """
+        Build array of Algolia search requests for multi-facet querying.
+
+        Creates the standard Algolia multi-request pattern used by search UIs:
+        1. Main request with all filters applied to get actual search results
+        2. Additional requests excluding each filtered facet to get facet counts
+        3. Special request for price_i facet (if present) to get price distribution
+
+        This matches the behavior of Algolia's InstantSearch widgets which need
+        facet counts to show available filter options in the UI.
+
+        Args:
+            indices: List of Algolia index names to search
+            parameters: Search parameters including facetFilters, facets, etc.
+
+        Returns:
+            List of request objects for Algolia's multi-index search endpoint
+
+        Example:
+            With facetFilters=[["brand:Nike"], ["category:shoes"]] and
+            facets=["brand", "category", "price_i"], creates 4 requests:
+            - Main search with both filters
+            - Search excluding brand filter (for brand facet counts)
+            - Search excluding category filter (for category facet counts)
+            - Search with all filters for price_i facet counts
+        """
         requests = []
+
         # encode if configured
         if self._config.encodeparams: params = self._urlencode(parameters)
         else: params = parameters
 
         facetfilters = parameters.get('facetFilters', [])
+        facets = parameters.get('facets', [])
 
         for index in indices:
+
             # Request 1: Full search with all filters - this gives actual results
             requests.append({
                 "indexName": index,
                 "params": params
             })
+
             # Requests 2-N: Remove each facet group for UI facet counts
-            if (facetfilters and self._config.multirequest):
-                for i in range(len(facetfilters)):
+            if (facetfilters and self._config.multirequest and facets):
+
+                filteredfacets = set()
+                for filtergroup in facetfilters:
+                    for filteritem in filtergroup:
+                        facetname = filteritem.split(':')[0]
+                        filteredfacets.add(facetname)
+
+
+                for facet in facets:
+                    log.info(f"""
+                    _buildrequestarray DEBUG
+                    -----------------------
+                    processing facet: {facet}
+                    is filtered: {facet in filteredfacets}
+                    """)
+                    if facet in filteredfacets:
+                        log.info(f"""
+                        _buildrequestarray DEBUG
+                        -----------------------
+                        creating request for filtered facet: {facet}
+                        """)
+                        modparams = parameters.copy()
+                        remainingfilters = []
+
+                        for filtergroup in facetfilters:
+                            groupremaining = [f for f in filtergroup if not f.startswith(f"{facet}:")]
+                            if groupremaining:
+                                remainingfilters.append(groupremaining)
+
+                        log.info(f"""
+                        _buildrequestarray DEBUG
+                        -----------------------
+                        facet {facet} - remaining filters after removal: {remainingfilters}
+                        """)
+
+                        if remainingfilters:
+                            modparams['facetFilters'] = remainingfilters
+                        else:
+                            modparams.pop('facetFilters', None)
+
+                        # Set single facet for this request
+                        modparams['facets'] = [facet]
+                        modparams['hitsPerPage'] = 0
+                        modparams['analytics'] = False
+                        modparams['clickAnalytics'] = False
+
+                        log.info(f"""
+                        _buildrequestarray DEBUG
+                        -----------------------
+                        facet {facet} - modified params keys: {list(modparams.keys())}
+                        facet {facet} - facets set to: {modparams['facets']}
+                        facet {facet} - hitsPerPage set to: {modparams['hitsPerPage']}
+                        """)
+
+                        if self._config.encodeparams:
+                            modparams = self._urlencode(modparams)
+
+
+                        requests.append({
+                            "indexName": index,
+                            "params": modparams
+                        })
+
+                        log.info(f"""
+                        _buildrequestarray DEBUG
+                        -----------------------
+                        added facet request for: {facet}
+                        """)
+
+                # special case for price_i
+                if ('price_i' in facets) and ('price_i' not in filteredfacets):
                     modparams = parameters.copy()
-                    modfacets = [fg for j, fg in enumerate(facetfilters) if j != i]
+                    modparams['facets'] = ['price_i']
+                    modparams['hitsPerPage'] = 0
+                    modparams['analytics'] = False
+                    modparams['clickAnalytics'] = False
 
-                    if modfacets: modparams['facetFilters'] = modfacets
-                    else: modparams.pop('facetFilters', None)
-
-                    if self._config.encodeparams: modparams = self._urlencode(modparams)
+                    if self._config.encodeparams:
+                        modparams = self._urlencode(modparams)
 
                     requests.append({
                         "indexName": index,
                         "params": modparams
                     })
-
 
         return requests
 
@@ -251,14 +357,6 @@ class AlgoliaBackend(BaseBackend):
         if not data:
             return request
 
-        log.info(f"""
-            AlgoliaBackend._formatrequest
-            -----------------------------
-            request.json: {request.json}
-
-            data: {data}
-            """)
-
         baseurl = self._config.baseurl
 
         # Get indices - either from data, config.indices, or fallback to single index
@@ -267,11 +365,6 @@ class AlgoliaBackend(BaseBackend):
             raise ValueError("At least one index is required for Algolia search")
 
         parameters = self._convertparams(data)
-        log.info(f"""
-            AlgoliaBackend._formatrequest
-            -----------------------------
-            (before filters) parameters: {parameters}
-            """)
         # add facet filters
         facetfilters = self._buildfacetfilters(data)
         if facetfilters:
@@ -280,28 +373,10 @@ class AlgoliaBackend(BaseBackend):
         # add numeric filters
         numericfilters = self._buildnumericfilters(data)
         if numericfilters:
-            parameters['numericFilters'] = ",".join(numericfilters)
-
-
-
-        log.info(f"""
-            AlgoliaBackend._formatrequest
-            -----------------------------
-            (after filters) parameters: {parameters}
-            """)
-
-
-
+            parameters['numericFilters'] = numericfilters
 
         # build requests array for multi-index support
         requests = self._buildrequestarray(indices, parameters)
-
-        log.info(f"""
-            AlgoliaBackend._formatrequest
-            -----------------------------
-            built requests: {requests}
-            """)
-
         payload = {"requests": requests}
         agent = f"x-algolia-agent={urllib.parse.quote(urllib.parse.unquote(self._config.agent)) if self._config.encodeagent else self._config.agent}"
         url = f"{baseurl}/1/indexes/*/queries?{agent}"
@@ -319,14 +394,6 @@ class AlgoliaBackend(BaseBackend):
                 'Content-Type': self._config.contenttype
             }
         }
-
-        log.info(f"""
-            AlgoliaBackend._formatrequest
-            -----------------------------
-            (pre-update) request.headers = {request.headers}
-
-            (post-update) request.headers = {update['headers']}
-            """)
 
         return request.model_copy(update=update)
 
