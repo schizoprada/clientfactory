@@ -1,5 +1,27 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.29] -- *2025-07-03*
+* Temporary bandaid fix for declared attribute resolution on resource decorators
+* Enhanced engine session override system for dynamic session switching without overhead
++ Dynamic Session Override: Added `usesession` parameter to engine request methods
+- Modified `BaseEngine.send()`, `BaseEngine.request()`, and `BaseEngine._makerequest()` to accept `t.Union[bool, BaseSession]` for session override
+- Enhanced `createboundmethod()` to pass resource-specific sessions to engine for per-request session switching
+- Enables resource-level sessions (with custom headers/auth) to override client-level engine sessions dynamically
++ RequestsSession Upgrade System: Automatic conversion of generic sessions to engine-compatible sessions
+- Added `RequestsSession.FromGeneric()` class method for converting generic sessions to RequestsSession instances
+- Added `RequestsEngine._upgradesession()` for seamless session type compatibility during request execution
+- Preserves all session state (headers, cookies, auth, persistence) during conversion process
++ SearchResource Session Integration: Proper resource session usage in bound method execution
+- Modified `SearchResource._generatesearchmethod()` to pass `self._session` to bound method creation
+- Fixed PrepMixin to use full request pipeline instead of bypassing validation/transformation steps
+- Resolved header inheritance issues where resource sessions weren't being used for requests
+* Session Pipeline Fixes: Corrected session method calls to use full preparation pipeline
+- Fixed `RequestsEngine._makerequest()` to call `session.send()` instead of `session._makerequest()` directly
+- Ensures session headers, authentication, and preparation steps are applied before request execution
+- Maintains proper separation between raw request execution and full session processing pipeline
+
+**Impact**: Resources can now declare independent sessions with custom headers/configuration that properly override client-level sessions without engine recreation overhead. Fixes long-standing header inheritance issues in declarative resource patterns.
+
 ## [0.9.28] -- *2025-06-29*
 * Bulk Operations Mixin: Foundation for multi-request coordination with dependency resolution
 + BulkMixin Implementation: Core functionality for batching and orchestrating multiple requests

@@ -202,9 +202,9 @@ def searchable(
     from clientfactory.core.utils.discover import collect
     from clientfactory.core.utils.parameters import construct
     def decorator(target: t.Type) -> t.Type[SearchResource]:
-        print(f"DEBUG searchable decorator: target = {target}")
-        print(f"DEBUG searchable decorator: dir(target) = {[attr for attr in dir(target) if not attr.startswith('_')]}")
-        print(f"DEBUG searchable decorator: target.payload = {getattr(target, 'payload', 'NOT_FOUND')}")
+        #print(f"DEBUG searchable decorator: target = {target}")
+        #print(f"DEBUG searchable decorator: dir(target) = {[attr for attr in dir(target) if not attr.startswith('_')]}")
+        #print(f"DEBUG searchable decorator: target.payload = {getattr(target, 'payload', 'NOT_FOUND')}")
 
         sigparams = construct.sigparams(
             filternone=True,

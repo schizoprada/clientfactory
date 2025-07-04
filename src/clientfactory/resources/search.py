@@ -54,16 +54,26 @@ class SearchResource(Resource):
         self._session: BaseSession = (components['session'] or client._engine._session)
         self._backend: t.Optional[BackendProtocol] = (components['backend'] or client._backend)
 
+        log.info(f"""
+            SearchResource.__init__
+            -----------------------
+            (param) session: {session}
+
+            (components) session: {components['session']}
+
+            (client-engine) session: {client._engine._session}
+
+            (final) session: {self._session}
+
+            (type) session: {type(self._session)}
+            """)
+
         # 2. resolve config
         self._config: SearchResourceConfig = self._resolveconfig(SearchResourceConfig, config, **kwargs) # type: ignore
 
         # 3. resolve attributes
-        print(f"DEBUG SearchResource.__init__: kwargs = {kwargs}")
         attrs = self._collectattributes(**kwargs)
-        print(f"DEBUG SearchResource.__init__: _collectattributes result = {attrs}")
-        print(f"DEBUG SearchResource.__init__: attrs payload = {attrs.get('payload')}")
         self._resolveattributes(attrs)
-        print(f"DEBUG SearchResource.__init__: self.payload after resolve = {self.payload}")
         self._client: 'BaseClient' = client
         self._methods: t.Dict[str, t.Callable] = {}
         self._children: t.Dict[str, 'BaseResource'] = {}
@@ -125,13 +135,10 @@ class SearchResource(Resource):
         searchmethod.__doc__ = self._generatedocstring()
 
         def validatepayload(kwargs):
-            print(f"DEBUG validatepayload: kwargs = {kwargs}")
             if self.payload is not None:
                 pinstance = self._getpayloadinstance()
-                print(f"DEBUG validatepayload: pinstance = {pinstance}")
                 if pinstance is not None:
                     result =  pinstance.validate(kwargs)
-                    print(f"DEBUG validatepayload: result = {result}")
                     return result
             return kwargs
 
@@ -145,6 +152,7 @@ class SearchResource(Resource):
             getengine=getengine,
             getbackend=getbackend,
             baseurl=baseurl,
+            usesession=self._session,
             resourcepath=self.path,
             validationstep=validatepayload,
             pathoverride=""
@@ -154,14 +162,11 @@ class SearchResource(Resource):
 
 
     def _resolveattributes(self, attributes: dict) -> None:
-        log.debug(f"SearchResource._resolveattributes: received attributes={attributes}")
         super()._resolveattributes(attributes)
-        log.info(f"SearchResource._resolveattributes: self.path (before) = {getattr(self, 'path', 'NOTSET')} ")
         self.payload = attributes.get('payload')
         self.method = attributes.get('method', HTTPMethod.POST)
         self.searchmethod = attributes.get('searchmethod', 'search')
         self.oncall = attributes.get('oncall', False)
-        log.info(f"SearchResource._resolveattributes: self.path (after) = {getattr(self, 'path', 'NOTSET')} ")
         # method config attributes
         self.headers = attributes.get('headers')
         self.cookies = attributes.get('cookies')

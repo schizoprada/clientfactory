@@ -97,8 +97,9 @@ class PrepMixin(BaseMixin):
         Returns:
             ExecutableRequest: Request object that can be called later to execute
         """
-        methodconfig = self._getmethodconfig()
+        #methodconfig = self._getmethodconfig()
         engine = self._getengine()
-        request = self._preparerequest(methodconfig, *args, **kwargs)
+        request = self._func(*args, noexec=True, **kwargs)
+
 
         return ExecutableRequest(**request.model_dump(), engine=engine)

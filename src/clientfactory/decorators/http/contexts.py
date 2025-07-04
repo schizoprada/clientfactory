@@ -9,6 +9,8 @@ import typing as t, functools as fn
 
 from clientfactory.core.models import Headers, Cookies
 
+from clientfactory.logs import log
+
 def headers(cls: t.Type) -> Headers:
     """
     Decorator to transform a class into a Headers instance.
@@ -25,7 +27,9 @@ def headers(cls: t.Type) -> Headers:
     Returns:
         Headers instance containing all non-private class attributes
     """
-    return Headers(cls)
+    obj = Headers(cls)
+    log.info(f"@headers | collected: {obj}")
+    return obj
 
 
 def cookies(cls: t.Type) -> Cookies:

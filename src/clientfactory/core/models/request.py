@@ -345,6 +345,7 @@ class Param(sex.Field):
         dependencies: t.Optional[t.List[str]] = None,
         conditions: t.Optional[t.Dict[str, t.Callable]] = None,
         validator: t.Optional[t.Callable] = None,
+        selfdependent: bool = False,
         allownone: bool = True,
         **kwargs: t.Any
     ) -> None:
@@ -369,6 +370,7 @@ class Param(sex.Field):
             'dependencies': dependencies,
             'conditions': conditions,
             'validator': validator,
+            'selfdependent': selfdependent,
             'allownone': allownone
         }
 

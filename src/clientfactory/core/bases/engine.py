@@ -68,7 +68,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         self,
         method: HTTPMethod,
         url: str,
-        usesession: bool,
+        usesession: t.Union[bool, BaseSession],
         noexec: bool = False,
         **kwargs: t.Any
     ) -> t.Union[RequestModel, ResponseModel]:
@@ -85,7 +85,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         method: t.Union[HTTPMethod, str],
         url: str,
         configoverride: bool = False,
-        usesession: bool = True,
+        usesession: t.Union[bool, BaseSession] = True,
         noexec: bool = False,
         **kwargs: t.Any
     ) -> t.Union[RequestModel, ResponseModel]:
@@ -136,7 +136,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
         request: RequestModel,
         noexec: bool = False,
         configoverride: bool = False,
-        usesession: bool = True, # should execute request with session
+        usesession: t.Union[bool, BaseSession] = True, # should execute request with session
     ) -> t.Union[RequestModel, ResponseModel]:
         """Send a prepared request object."""
         self._checknotclosed()

@@ -13,6 +13,7 @@ from schematix import Field, Schema
 from clientfactory.core.bases import BaseBackend
 from clientfactory.core.models import BackendConfig, RequestModel, ResponseModel
 
+from clientfactory.logs import log
 
 class AlgoliaConfig(BackendConfig):
     """Configuration for Algolia backend."""
@@ -21,12 +22,13 @@ class AlgoliaConfig(BackendConfig):
     index: str = ""
     indices: t.List[str] = []
     agent: str = "ClientFactory"
+    encodeagent: bool = False # new
     urlbase: str = "https://{appid}-dsn.algolia.net"
     contenttype: str = 'application/json'  # Configurable content type
     encodeparams: bool = False  # Whether to URL encode params
     paramdelimiter: str = '&'
     mergeresults: bool = False  # Whether to merge multi-index results
-
+    multirequest: bool = True # build multi-request array
 
     @fieldvalidator('urlbase')
     @classmethod
@@ -51,10 +53,16 @@ class AlgoliaParams(Schema):
     hitsPerPage = Field(source="limit", target="hitsPerPage") | Field(source="hitsPerPage", target="hitsPerPage")
     page = Field(source="page", target="page", default=0)
     filters = Field(source="filters", target="filters", default="")
-    facets = Field(source="facets", target="facets", default=[])
-    attributesToRetrieve = Field(source="attributesToRetrieve", target="attributesToRetrieve", default=["*"])
-    attributesToHighlight = Field(source="attributesToHighlight", target="attributesToHighlight", default=[])
-
+    facets = Field(source="facets", target="facets", default=["badges", "location", "price_i", "strata"])
+    #attributesToRetrieve = Field(source="attributesToRetrieve", target="attributesToRetrieve", default=["*"])
+    #attributesToHighlight = Field(source="attributesToHighlight", target="attributesToHighlight", default=[])
+    analytics = Field(source="analytics", target="analytics")
+    clickAnalytics = Field(source="clickAnalytics", target="clickAnalytics")
+    enableABTest = Field(source="enableABTest", target="enableABTest")
+    getRankingInfo = Field(source="getRankingInfo", target="getRankingInfo")
+    highlightPreTag = Field(source="highlightPreTag", target="highlightPreTag")
+    highlightPostTag = Field(source="highlightPostTag", target="highlightPostTag")
+    maxValuesPerFacet = Field(source="maxValuesPerFacet", target="maxValuesPerFacet")
 
 class AlgoliaResponse(Schema):
     hits = Field(source="hits", target="hits")
@@ -77,7 +85,11 @@ class AlgoliaBackend(BaseBackend):
     """
     __declaredas__: str = 'algolia'
     __declattrs__: set[str] = BaseBackend.__declattrs__ | {'appid', 'apikey', 'index', 'indices', 'facetsmap', 'numerics', 'facets'}
-    __declconfs__: set[str] = BaseBackend.__declconfs__ | {'urlbase', 'agent', 'indices', 'index', 'appid', 'apikey', 'content', 'encodeparams', 'paramdelimiter'}
+    __declconfs__: set[str] = BaseBackend.__declconfs__ | {
+        'urlbase', 'agent', 'indices', 'index', 'appid', 'apikey',
+        'contenttype', 'encodeparams', 'paramdelimiter', 'encodeagent',
+        'multirequest'
+    }
 
     def __init__(
         self,
@@ -172,69 +184,26 @@ class AlgoliaBackend(BaseBackend):
 
         return filters
 
-    def _buildstandardparams(self, data: dict) -> dict:
-        """
-        Build common Algolia parameters from data.
-
-        Args:
-            data: Input data dictionary
-
-        Returns:
-            Dict of standard Algolia parameters
-        """
-        #! todo: convert to Schema
-        params = {}
-        standard = {
-            'analytics',
-            'click_analytics',
-            'enable_ab_test',
-            'highlight_pre_tag',
-            'highlight_post_tag',
-            'facets',
-            'max_values_per_facet',
-            'get_ranking_info',
-            'attributes_to_retrieve',
-            'attributes_to_highlight',
-        }
-        camelize = lambda s: s if ('_' not in s) else (s.split('_')[0] + ''.join(w.title() for w in s.split('_')[1:]))
-        for key in standard:
-            camel = camelize(key)
-            if (key in data):
-                params[camel] = data[key]
-            elif (camel in data):
-                params[camel] = data[camel]
-        return {k:v for k,v in params.items() if v is not None}
-
     def _convertparams(self, data: t.Dict[str, t.Any]) -> t.Dict[str, t.Any]:
         """Convert search parameters to Algolia format."""
-        print(f"""
-            DEBUG AlgoliaBackend._convertparams
-            -----------------------------------
-
-            data: {data}
-
-            """)
         params = self._paramschema.transform(data)
 
         if ('offset' in data) and ('limit' in data):
             params['page'] = int(data['offset']) // int(data['limit'])
 
-        print(f"""
-            DEBUG AlgoliaBackend._convertparams
-            -----------------------------------
-
-            params: {params}
-
-            """)
+        params['facets'] = list(set(params.get('facets', []) + list(self.facets)))
 
         return {k:v for k,v in params.items() if v is not None}
 
     def _urlencode(self, parameters: dict) -> str:
         """URL encode parameters with configurable delimiter."""
-        if self._config.paramdelimiter == '&':
-            return urllib.parse.urlencode(parameters)
+        serialize = lambda v: str(v).lower() if isinstance(v, bool) else str(v)
 
-        encode = lambda v: urllib.parse.quote_plus(str(v))
+        if self._config.paramdelimiter == '&':
+            serialized = {k: serialize(v) for k, v in parameters.items()}
+            return urllib.parse.urlencode(serialized)
+
+        encode = lambda v: urllib.parse.quote_plus(serialize(v))
         pair = lambda k, v: f"{k}={v}"
         encoded = [
             pair(encode(k), encode(v))
@@ -242,20 +211,53 @@ class AlgoliaBackend(BaseBackend):
         ]
         return self._config.paramdelimiter.join(encoded)
 
+    def _buildrequestarray(self, indices: list, parameters: dict) -> list:
+        """..."""
+        requests = []
+        # encode if configured
+        if self._config.encodeparams: params = self._urlencode(parameters)
+        else: params = parameters
+
+        facetfilters = parameters.get('facetFilters', [])
+
+        for index in indices:
+            # Request 1: Full search with all filters - this gives actual results
+            requests.append({
+                "indexName": index,
+                "params": params
+            })
+            # Requests 2-N: Remove each facet group for UI facet counts
+            if (facetfilters and self._config.multirequest):
+                for i in range(len(facetfilters)):
+                    modparams = parameters.copy()
+                    modfacets = [fg for j, fg in enumerate(facetfilters) if j != i]
+
+                    if modfacets: modparams['facetFilters'] = modfacets
+                    else: modparams.pop('facetFilters', None)
+
+                    if self._config.encodeparams: modparams = self._urlencode(modparams)
+
+                    requests.append({
+                        "indexName": index,
+                        "params": modparams
+                    })
+
+
+        return requests
+
     def _formatrequest(self, request: RequestModel, data: t.Dict[str, t.Any]) -> RequestModel:
         """Format request for Algolia API."""
-        print(f"""
-            DEBUG AlgoliaBackend._formatrequest
-            ___________________________________
 
-            request: {request}
-
-
-            data: {data}
-
-            """)
         if not data:
             return request
+
+        log.info(f"""
+            AlgoliaBackend._formatrequest
+            -----------------------------
+            request.json: {request.json}
+
+            data: {data}
+            """)
 
         baseurl = self._config.baseurl
 
@@ -265,7 +267,11 @@ class AlgoliaBackend(BaseBackend):
             raise ValueError("At least one index is required for Algolia search")
 
         parameters = self._convertparams(data)
-
+        log.info(f"""
+            AlgoliaBackend._formatrequest
+            -----------------------------
+            (before filters) parameters: {parameters}
+            """)
         # add facet filters
         facetfilters = self._buildfacetfilters(data)
         if facetfilters:
@@ -274,47 +280,33 @@ class AlgoliaBackend(BaseBackend):
         # add numeric filters
         numericfilters = self._buildnumericfilters(data)
         if numericfilters:
-            parameters['numericFilters'] = numericfilters
-
-        # add standard parameters
-        standardparams = self._buildstandardparams(data)
-        parameters.update(standardparams)
+            parameters['numericFilters'] = ",".join(numericfilters)
 
 
-        # encode if configured
-        print(f"""
-            DEBUG AlgoliaBackend._formatrequest
-            ------------------------------------
-            self._config.encodeparams = {self._config.encodeparams}
 
-            parameters = {parameters}
+        log.info(f"""
+            AlgoliaBackend._formatrequest
+            -----------------------------
+            (after filters) parameters: {parameters}
             """)
-        if self._config.encodeparams:
-            params = self._urlencode(parameters)
-        else:
-            params = parameters
 
-        print(f"""
-            DEBUG AlgoliaBackend._formatrequest
-            ------------------------------------
-            self._config.encodeparams = {self._config.encodeparams}
 
-            params = {params}
-            """)
 
 
         # build requests array for multi-index support
-        requests = [
-            {
-                "indexName": index,
-                "params": params
-            }
-            for index in indices
-        ]
+        requests = self._buildrequestarray(indices, parameters)
+
+        log.info(f"""
+            AlgoliaBackend._formatrequest
+            -----------------------------
+            built requests: {requests}
+            """)
 
         payload = {"requests": requests}
-        agent = urllib.parse.urlencode({'x-algolia-agent': self._config.agent})
+        agent = f"x-algolia-agent={urllib.parse.quote(urllib.parse.unquote(self._config.agent)) if self._config.encodeagent else self._config.agent}"
         url = f"{baseurl}/1/indexes/*/queries?{agent}"
+
+
 
         update = {
             'url': url,
@@ -327,6 +319,14 @@ class AlgoliaBackend(BaseBackend):
                 'Content-Type': self._config.contenttype
             }
         }
+
+        log.info(f"""
+            AlgoliaBackend._formatrequest
+            -----------------------------
+            (pre-update) request.headers = {request.headers}
+
+            (post-update) request.headers = {update['headers']}
+            """)
 
         return request.model_copy(update=update)
 
@@ -364,12 +364,9 @@ class AlgoliaBackend(BaseBackend):
 
         try:
             data = response.json()
-            print(f"DEBUG Algolia: data = {data}")
-            print(f"DEBUG Algolia: raiseonerror = {self._config.raiseonerror}")
 
             # Check for Algolia-specific errors like CFv2
             if ("message" in data) and ("status" in data) and (int(data["status"]) >= 400):
-                print(f"DEBUG Algolia: Found error, should raise = {self._config.raiseonerror}")
                 if self._config.raiseonerror:
                     raise RuntimeError(f"Algolia Error: {data['message']}")
 

@@ -40,8 +40,14 @@ class RequestsSession(BaseSession):
         """Create and configure requests.Session object."""
         session = rq.Session()
 
-        log.info(f"RequestsSession._setup: self._headers = {self._headers}")
-        log.info(f"RequestsSession._setup: type(self._headers) = {type(self._headers)}")
+        log.info(f"""
+            RequestsSession._setup
+            ----------------------
+            self._headers = {self._headers}
+
+            self._config.defaultheaders = {self._config.defaultheaders}
+            """)
+
 
 
         # Apply session config to requests.Session
@@ -60,13 +66,36 @@ class RequestsSession(BaseSession):
             session.mount("http://", adapter)
             session.mount("https://", adapter)
 
+        log.info(f"""
+            RequestsSession._setup
+            ----------------------
+            (final) session.headers = {session.headers}
+            """)
         return session
 
     def _preparerequest(self, request: RequestModel, noexec: bool = False) -> RequestModel:
         """Apply session-level defaults to request."""
+        log.info(f"""
+            RequestsSession._preparerequest
+            -------------------------------
+            self._obj.headers: {dict(self._obj.headers)}
+
+            (before) request.headers: {request.headers}
+            """)
+
         headers = dict(self._obj.headers).copy()
         headers.update(request.headers)
-        return request.withheaders(headers)
+        updated = request.withheaders(headers)
+
+        log.info(f"""
+            RequestsSession._preparerequest
+            -------------------------------
+            (merged) headers: {headers}
+
+            (after) request.headers: {updated.headers}
+            """)
+
+        return updated
 
     def _makerequest(self, request: RequestModel, noexec: bool = False) -> t.Union[RequestModel, ResponseModel]:
         """Execute request using requests.Session"""
@@ -90,6 +119,26 @@ class RequestsSession(BaseSession):
         """Standard response processing."""
         return response
 
+    @classmethod
+    def FromGeneric(cls, session: BaseSession) -> 'RequestsSession':
+        """Create RequestsSession from generic session, preserving all attributes."""
+        headers = getattr(session, '_headers', {})
+        cookies = getattr(session, '_cookies', {})
+        auth = getattr(session, '_auth', None)
+        persistence = getattr(session, '_persistence', None)
+
+        config = session._config.updateheaders(headers).updatecookies(cookies)
+
+        rqsession = cls(
+            config=config,
+            headers=headers,
+            cookies=cookies,
+            auth=auth,
+            persistence=persistence
+        )
+
+        return rqsession
+
 class RequestsEngine(BaseEngine):
     """
     HTTP engine implementation using requests library.
@@ -108,52 +157,97 @@ class RequestsEngine(BaseEngine):
         needsupgrade = lambda: sessionprovided() and not isinstance(self._session, RequestsSession)
         goodtogo = lambda: sessionprovided() and isinstance(self._session, RequestsSession)
 
+        extantsession = None
+        extantheaders = {}
+        extantcookies = {}
+        extantauth = None
+        extantpersist = None
+        extantconfig = None
 
-        if needsupgrade():
-            # Upgrade existing session to RequestsSession
+        if sessionprovided():
             extantsession = self._session
-            extantconfig = extantsession._config
-            extantauth = getattr(extantsession, '_auth', None)
-            extantpersist = getattr(extantsession, '_persistence', None)
             extantheaders = getattr(extantsession, '_headers', {})
             extantcookies = getattr(extantsession, '_cookies', {})
+            extantauth = getattr(extantsession, '_auth', None)
+            extantpersist = getattr(extantsession, '_persistence', None)
+            extantconfig = getattr(extantsession, '_config', None)
 
-            sessionconfig = config or extantconfig
-            sessionconfig = sessionconfig.cascadefromengine(self._config)
-            sessionconfig = sessionconfig.updateheaders(extantheaders).updatecookies(extantcookies)
-
-            log.info(f"RequestsEngine._setupsession: sessionconfig (after cascade) = {sessionconfig}")
-
-            rqsession = RequestsSession(config=sessionconfig)
-
-            if extantauth:
-                rqsession._auth = extantauth
-            if extantpersist:
-                rqsession._persistence = extantpersist
-
-            return rqsession
-
-        elif goodtogo():
-            log.debug(f"RequestsEngine._setupsession: session already good, returning existing")
-            # Already is RequestsSession
+        if goodtogo():
+            log.info(f"RequestsEngine._setupsession :: session good to go -- returning")
             return self._session # type: ignore
 
-        else:
-            log.debug(f"RequestsEngine._setupsession: creating new RequestsSession")
-            # No session provided, create new
-            sessionconfig = (config or SessionConfig())
-            sessionconfig = sessionconfig.cascadefromengine(self._config)
-            log.debug(f"RequestsEngine._setupsession: new sessionconfig = {sessionconfig}")
-            new_session = RequestsSession(config=sessionconfig)
-            log.debug(f"RequestsEngine._setupsession: created new session = {new_session}")
-            return new_session
+
+        log.info(f"""
+            RequestsEngine._setupsession
+            ----------------------------
+            extant:
+                session: {extantsession}
+
+                headers: {extantheaders}
+
+                cookies: {extantcookies}
+
+                auth: {extantauth}
+
+                persist: {extantpersist}
+
+                config: {extantconfig}
+            """)
+
+        sessionconfig = (config or (extantconfig or SessionConfig()))
+        sessionconfig = sessionconfig.cascadefromengine(self._config) # type: ignore
+        sessionconfig = sessionconfig.updateheaders(extantheaders).updatecookies(extantcookies)
+
+        log.info(f"""
+            RequestsEngine._setupsession
+            ----------------------------
+            sessionconfig: {sessionconfig}
+            """)
+
+        rqsession = RequestsSession(
+            config=sessionconfig,
+            headers=extantheaders,
+            cookies=extantcookies,
+            auth=extantauth,
+            persistence=extantpersist
+        )
+
+        return rqsession
+
+    def _upgradesession(self, session: BaseSession) -> RequestsSession:
+        """
+        Upgrade a generic session to RequestsSession for compatibility.
+
+        If the session is already a RequestsSession, returns it unchanged.
+        Otherwise, creates a new RequestsSession preserving all attributes
+        from the original session (headers, cookies, auth, persistence).
+
+        Args:
+            session: The session to upgrade
+
+        Returns:
+            RequestsSession instance ready for making HTTP requests
+        """
+        if isinstance(session, RequestsSession):
+            return session
+        return RequestsSession.FromGeneric(session)
 
 
-    def _makerequest(self, method: HTTPMethod, url: str, usesession: bool, noexec: bool = False, **kwargs: t.Any) -> t.Union[RequestModel, ResponseModel]:
+    def _makerequest(self, method: HTTPMethod, url: str, usesession: t.Union[bool, BaseSession], noexec: bool = False, **kwargs: t.Any) -> t.Union[RequestModel, ResponseModel]:
         """Make HTTP request using requests library."""
+        log.info(f"""
+            RequestsEngine._makerequest
+            ---------------------------
+            (kwargs) headers = {kwargs.get('headers')}
+
+            """)
+
         try:
             request = RequestModel(method=method, url=url, **kwargs)
             if usesession:
+                if isinstance(usesession, BaseSession):
+                    useable = self._upgradesession(usesession)
+                    return useable.send(request, noexec=noexec) # use provided session directly
                 return self._session.send(request, noexec=noexec)
             else:
                 if noexec:

@@ -10,7 +10,7 @@ import typing as t
 if t.TYPE_CHECKING:
     from clientfactory.core.models.config import MethodConfig
     from clientfactory.core.models.methods import BoundMethod
-    from clientfactory.core.bases import BaseEngine, BaseBackend, BaseResource, BaseClient
+    from clientfactory.core.bases import BaseEngine, BaseBackend, BaseResource, BaseClient, BaseSession
 
 ParentType = t.Union['BaseClient', 'BaseResource']
 EngineGetter = t.Callable[[ParentType], 'BaseEngine']
@@ -23,6 +23,7 @@ def createboundmethod(
     getengine: EngineGetter,
     getbackend: BackendGetter,
     baseurl: str,
+    usesession: t.Union[bool, 'BaseSession'] = True,
     resourcepath: t.Optional[str] = None,
     validationstep: t.Optional[t.Callable] = None,
     pathoverride: t.Optional[str] = None,
@@ -56,15 +57,11 @@ def createboundmethod(
     methodconfig: 'MethodConfig' = getattr(method, '_methodconfig')
 
     def bound(*args, noexec: bool = False, **kwargs):
-        print(f"DEBUG bound: kwargs = {kwargs}")
         if methodconfig.preprocess:
             kwargs = methodconfig.preprocess(kwargs)
-            print(f"DEBUG bound: (after preprocess) kwargs = {kwargs}")
         kwargs = resolveargs(methodconfig.path, *args, **kwargs)
-        print(f"DEBUG bound: (after resolveargs) kwargs = {kwargs}")
         if validationstep:
             kwargs = validationstep(kwargs)
-            print(f"DEBUG bound: (after validationstep) kwargs = {kwargs}")
         targetpath = pathoverride if pathoverride is not None else methodconfig.path
         path, consumed = substitute(targetpath, **kwargs)
 
@@ -86,7 +83,7 @@ def createboundmethod(
             request = backend.formatrequest(request, kwargs)
 
         engine = getengine(parent)
-        response = engine.send(request, noexec=noexec)
+        response = engine.send(request, noexec=noexec, usesession=usesession)
 
         if isinstance(response, RequestModel):
             return response
