@@ -1,5 +1,12 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.31] -- *2025-07-04*
+* Enhanced Param field auto-configuration for cleaner schema definitions
+- Added automatic `source` attribute assignment in `Param.__set_name__()`
+- Param fields now default `source` to field name when not explicitly specified
+- Improves developer experience by reducing boilerplate in parameter schema classes
+- Maintains existing behavior while providing sensible defaults for common use cases
+
 ## [0.9.30] -- *2025-07-04*
 * Critical AlgoliaBackend fixes for production-ready faceted search
 - Fixed parameter serialization to use JSON format with double quotes instead of Python's single quotes

@@ -404,6 +404,9 @@ class Param(sex.Field):
         if self.name is None:
             self.name = name
 
+        if self.source is None:
+            self.source = self.name
+
         # Now set target default if not specified
         if self.target is None:
             self.target = self.name
