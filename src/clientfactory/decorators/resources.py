@@ -8,7 +8,7 @@ from __future__ import annotations
 import typing as t
 
 from clientfactory.core import Resource
-from clientfactory.resources import SearchResource, ManagedResource
+from clientfactory.resources import SearchResource, ManagedResource, ViewResource
 from clientfactory.core.models import ResourceConfig, SearchResourceConfig, MergeMode
 from clientfactory.decorators._utils import annotate
 from clientfactory.logs import log
@@ -24,8 +24,6 @@ def _transformtoresource(
     """
     Transform a target class into the specified resource type.
     """
-    #print(f"DEBUG _transformtoresource: target = {target}")
-    #print(f"DEBUG _transformtoresource: kwargs = {kwargs}")
     # collect attributes from target first
     classdict = {
         attrname: getattr(target, attrname)
@@ -298,6 +296,113 @@ def manageable(
         if crud is not None:
             transformed.__crud__ = crud
         return transformed
+    if cls is not None:
+        return decorator(cls)
+    return decorator
+
+
+## Viewable ##
+### overloads ###
+@t.overload
+def viewable(cls: t.Type, /) -> t.Type[ViewResource]: ...
+
+@t.overload
+def viewable(
+    *,
+    config: t.Optional[ResourceConfig] = None,
+    name: t.Optional[str] = None,
+    **kwargs: t.Any
+) -> t.Callable[[t.Type], t.Type[ViewResource]]: ...
+
+
+def viewable(
+   cls: t.Optional[t.Type] = None,
+   *,
+   config: t.Optional[ResourceConfig] = None,
+   name: t.Optional[str] = None,
+   path: t.Optional[str] = None,
+   payload: t.Optional[t.Any] = None,
+   method: t.Optional[str] = None,
+   viewmethod: str = "view",
+   viewpath: str = "{id}",
+   headers: t.Optional[t.Dict[str, str]] = None,
+   cookies: t.Optional[t.Dict[str, str]] = None,
+   headermode: t.Optional[MergeMode] = None,
+   cookiemode: t.Optional[MergeMode] = None,
+   timeout: t.Optional[float] = None,
+   retries: t.Optional[int] = None,
+   preprocess: t.Optional[t.Callable] = None,
+   postprocess: t.Optional[t.Callable] = None,
+   **kwargs: t.Any
+) -> t.Union[t.Type[ViewResource], t.Callable[[t.Type], t.Type[ViewResource]]]:
+    """
+    Transform a class into a ViewResource.
+
+    Args:
+        cls: Class to transform (when used without parentheses)
+        config: Pre-configured ResourceConfig object
+        name: Resource name (defaults to class name lowercase)
+        path: Resource path (defaults to name)
+        payload: Payload class for view parameter validation
+        method: HTTP method for view (GET/POST)
+        viewmethod: Name of the view method (default: "view")
+        viewpath: Path template for view endpoint (default: "{id}")
+        headers: Method-specific headers
+        cookies: Method-specific cookies
+        headermode: How to merge method headers with session headers
+        cookiemode: How to merge method cookies with session cookies
+        timeout: Request timeout in seconds
+        retries: Number of retry attempts
+        preprocess: Function to transform request data
+        postprocess: Function to transform response data
+        **kwargs: Additional view resource configuration
+
+    Example:
+        @viewable
+        class ItemView: pass
+
+        @viewable(payload=ItemViewPayload, viewpath="{category}/{id}", timeout=30.0)
+        class ItemView: pass
+
+        @viewable(headers={"X-API-Key": "secret"}, headermode=MergeMode.OVERWRITE)
+        class ItemView: pass
+
+        @viewable(config=ViewConfig)
+        class ItemView: pass
+    """
+    from clientfactory.core.utils.discover import collect
+    from clientfactory.core.utils.parameters import construct
+
+    def decorator(target: t.Type) -> t.Type[ViewResource]:
+        sigparams = construct.sigparams(
+            filternone=True,
+            config=config,
+            name=name,
+            path=path,
+            payload=payload,
+            method=method,
+            viewmethod=viewmethod,
+            viewpath=viewpath,
+            headers=headers,
+            cookies=cookies,
+            headermode=headermode,
+            cookiemode=cookiemode,
+            timeout=timeout,
+            retries=retries,
+            preprocess=preprocess,
+            postprocess=postprocess
+        )
+
+        declared = collect.classdeclarations(target, explicit=ViewResource.__declattrs__)
+        sigparams.update(declared)
+
+        return _transformtoresource(
+            target=target,
+            variant=ViewResource,
+            **sigparams,
+            **kwargs
+        )
+
     if cls is not None:
         return decorator(cls)
     return decorator

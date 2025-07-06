@@ -1,5 +1,19 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.33] -- *2025-07-06*
+* ViewResource Decorator: Complete @viewable decorator implementation for declarative view resource creation
++ @viewable Decorator: Full-featured decorator following @searchable patterns with ViewResource-specific parameters
+- Comprehensive parameter support: viewmethod, viewpath, method, payload, headers, cookies, timeout, retries, preprocess, postprocess
+- Declarative configuration with method-specific defaults: viewmethod="view", viewpath="{id}", method=HTTPMethod.GET
+- Configuration merging with headermode/cookiemode support for fine-grained request control
+- Payload integration for view parameter validation and transformation
+- Class attribute collection and decorator parameter precedence following established patterns
++ Enhanced Resource Decorator Ecosystem: Consistent decorator interface across all resource types
+- Updated imports to include ViewResource in decorator module
+- Unified decorator signature patterns across @resource, @searchable, @manageable, and @viewable
+- Complete overload support for both parameterized and parameterless decorator usage
+- Seamless integration with existing _transformtoresource infrastructure
+
 ## [0.9.32] -- *2025-07-06*
 * ViewResource Implementation: Specialized resource for single-item retrieval operations
 + ViewResource Core: Complete standalone implementation following SearchResource patterns

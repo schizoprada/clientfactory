@@ -2,3 +2,4 @@
 
 from .managed import ManagedResource
 from .search import SearchResource
+from .view import ViewResource
