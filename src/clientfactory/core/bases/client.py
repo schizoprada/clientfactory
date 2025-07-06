@@ -186,3 +186,7 @@ class BaseClient(abc.ABC, Declarative):
 
     ## operator overloads ##
     #! implement later
+
+    @classmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        raise NotImplementedError()

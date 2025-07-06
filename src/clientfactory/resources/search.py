@@ -82,7 +82,7 @@ class SearchResource(Resource):
         self._initmethods()
         self._initchildren()
 
-    def _generatedocstring(self) -> str:
+    def _generatesearchdocs(self) -> str:
         """Generate docstring for search method based on payload"""
         if not self.payload:
             return f"Search method for {self.name} resource"
@@ -132,7 +132,7 @@ class SearchResource(Resource):
         def searchmethod(): pass # dummy
         searchmethod._methodconfig = methodconfig # type: ignore
         searchmethod.__name__ = self.searchmethod
-        searchmethod.__doc__ = self._generatedocstring()
+        searchmethod.__doc__ = self._generatesearchdocs()
 
         def validatepayload(kwargs):
             if self.payload is not None:

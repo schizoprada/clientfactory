@@ -208,3 +208,7 @@ class BaseEngine(abc.ABC, Declarative): #! add back in: RequestEngineProtocol,
     def __exit__(self, exc_type: t.Any, exc_val: t.Any, exc_tb: t.Any) -> None:
         """Exit context manager."""
         self.close()
+
+    @classmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        raise NotImplementedError()

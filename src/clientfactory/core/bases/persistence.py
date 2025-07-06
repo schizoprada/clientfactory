@@ -152,3 +152,7 @@ class BasePersistence(abc.ABC, Declarative): #! add back in PersistenceProtocol,
         if not self._loaded:
             self._state = self.load()
         return self._state.copy()
+
+    @classmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        raise NotImplementedError()

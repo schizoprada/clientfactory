@@ -1,5 +1,31 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.32] -- *2025-07-06*
+* ViewResource Implementation: Specialized resource for single-item retrieval operations
++ ViewResource Core: Complete standalone implementation following SearchResource patterns
+- Declarative attributes: viewmethod, viewpath, method, payload, headers, cookies, timeout, retries, preprocess, postprocess
+- Automatic view method generation with path parameter substitution using viewpath templates (e.g., "{id}", "{category}/{id}")
+- Path parameter extraction from URL templates with automatic request building and validation
+- Payload integration for optional query parameter validation and transformation
+- Method configuration support with headers, cookies, timeout, and preprocessing/postprocessing hooks
+- Dynamic docstring generation based on viewpath parameters and payload field documentation
++ ViewResource Features: Production-ready single-item retrieval with comprehensive configuration
+- Default configuration: viewmethod="view", viewpath="{id}", method=HTTPMethod.GET
+- Full integration with existing engine/session/backend pipeline through createboundmethod utility
+- Path parameter substitution automatically consumes args to prevent payload parameter conflicts
+- Backend processing support for response transformation and error handling
+- Session override support enabling resource-specific authentication and request configuration
++ Comprehensive Test Coverage: 10 passing unit tests validating all ViewResource functionality
+- Basic resource creation with default and custom attributes (viewmethod, viewpath, HTTP method)
+- Method generation verification ensuring proper view method creation and registration
+- Path parameter handling and request execution with proper engine/backend integration
+- Payload validation and transformation testing with mock backends and response processing
+- Docstring generation testing for both simple and payload-enhanced documentation
+
+**Foundation Established**: ViewResource provides the building blocks for resource composition patterns, enabling future implementation of SearchResource & ViewResource combined functionality through declarative composition operators.
+
+**Resource Composition Exploration**: Initial investigation into `SearchResource & ViewResource` composition patterns using `__and__` operators - significant architectural considerations identified around metaclass interactions, attribute resolution precedence, and configuration merging strategies. Composition system deferred pending deeper design analysis.
+
 ## [0.9.31] -- *2025-07-04*
 * Enhanced Param field auto-configuration for cleaner schema definitions
 - Added automatic `source` attribute assignment in `Param.__set_name__()`

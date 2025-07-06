@@ -127,3 +127,7 @@ class BaseBackend(abc.ABC, Declarative): #! add back in BackendProtocol,
             if isinstance(e, RuntimeError):
                 raise
             raise RuntimeError(f"Response processing failed: {e}") from e
+
+    @classmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        raise NotImplementedError()

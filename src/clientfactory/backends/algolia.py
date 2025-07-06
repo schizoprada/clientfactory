@@ -273,18 +273,7 @@ class AlgoliaBackend(BaseBackend):
 
 
                 for facet in facets:
-                    log.info(f"""
-                    _buildrequestarray DEBUG
-                    -----------------------
-                    processing facet: {facet}
-                    is filtered: {facet in filteredfacets}
-                    """)
                     if facet in filteredfacets:
-                        log.info(f"""
-                        _buildrequestarray DEBUG
-                        -----------------------
-                        creating request for filtered facet: {facet}
-                        """)
                         modparams = parameters.copy()
                         remainingfilters = []
 
@@ -292,12 +281,6 @@ class AlgoliaBackend(BaseBackend):
                             groupremaining = [f for f in filtergroup if not f.startswith(f"{facet}:")]
                             if groupremaining:
                                 remainingfilters.append(groupremaining)
-
-                        log.info(f"""
-                        _buildrequestarray DEBUG
-                        -----------------------
-                        facet {facet} - remaining filters after removal: {remainingfilters}
-                        """)
 
                         if remainingfilters:
                             modparams['facetFilters'] = remainingfilters
@@ -310,13 +293,6 @@ class AlgoliaBackend(BaseBackend):
                         modparams['analytics'] = False
                         modparams['clickAnalytics'] = False
 
-                        log.info(f"""
-                        _buildrequestarray DEBUG
-                        -----------------------
-                        facet {facet} - modified params keys: {list(modparams.keys())}
-                        facet {facet} - facets set to: {modparams['facets']}
-                        facet {facet} - hitsPerPage set to: {modparams['hitsPerPage']}
-                        """)
 
                         if self._config.encodeparams:
                             modparams = self._urlencode(modparams)
@@ -326,12 +302,6 @@ class AlgoliaBackend(BaseBackend):
                             "indexName": index,
                             "params": modparams
                         })
-
-                        log.info(f"""
-                        _buildrequestarray DEBUG
-                        -----------------------
-                        added facet request for: {facet}
-                        """)
 
                 # special case for price_i
                 if ('price_i' in facets) and ('price_i' not in filteredfacets):
@@ -351,6 +321,16 @@ class AlgoliaBackend(BaseBackend):
 
         return requests
 
+    def _getindices(self, data: dict) -> list:
+        """..."""
+        log.info(f"DEBUG _getindices -- data: {data}")
+        if 'index' in data:
+            return [data.pop('index')]
+        elif 'indices' in data:
+            return data.pop('indices', [])
+        else:
+            return (self._config.indices or [self.index])
+
     def _formatrequest(self, request: RequestModel, data: t.Dict[str, t.Any]) -> RequestModel:
         """Format request for Algolia API."""
 
@@ -360,7 +340,7 @@ class AlgoliaBackend(BaseBackend):
         baseurl = self._config.baseurl
 
         # Get indices - either from data, config.indices, or fallback to single index
-        indices = data.pop('indices', self._config.indices or [self.index])
+        indices = self._getindices(data)
         if (not indices) or (not any(indices)):
             raise ValueError("At least one index is required for Algolia search")
 

@@ -222,3 +222,8 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
     def obj(self) -> t.Any:
         """The library-specific session object"""
         return self._obj
+
+
+    @classmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        raise NotImplementedError()

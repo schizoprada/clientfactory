@@ -241,3 +241,25 @@ class Declarative(metaclass=DeclarativeMeta):
             raise AttributeError(f"({self.__class__.__name__}:{name}) component not initialized ")
         # standard attribute error for non-component attributes
         raise AttributeError(f"({self.__class__.__name__}) has no attribute: {name}")
+
+
+
+    @classmethod
+    @abc.abstractmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        """Create a new composed class. Must be implemented by subclasses."""
+
+    @classmethod
+    def _checkcomposable(cls, other: t.Any) -> None:
+        if not hasattr(other, '_compose'):
+            raise ValueError()
+
+    @classmethod
+    def __and__(cls, other: t.Any) -> t.Any:
+        cls._checkcomposable(other)
+        return cls._compose(other)
+
+    @classmethod
+    def __rand__(cls, other: t.Any) -> t.Any:
+        cls._checkcomposable(other)
+        return other._compose(cls)

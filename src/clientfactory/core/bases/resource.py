@@ -189,4 +189,17 @@ class BaseResource(abc.ABC, Declarative):
     # no properties, Resources should be declarative
 
     ## operator overloads ##
-    #! implement later
+    @classmethod
+    def _compose(cls, other: t.Union['BaseResource', t.Type['BaseResource']]) -> t.Type['BaseResource']:
+        """Create a new composed resource class."""
+        othercls = other if isinstance(other, type) else type(other)
+
+        name = f"({cls.__name__})&({othercls.__name__})"
+        # Use the metaclass instead of type() to preserve metaclass behavior
+        metaclass = type(cls)
+
+        composed = metaclass(name, (cls, othercls), {
+            "__module__": cls.__module__,
+            "__qualname__": f"({cls.__qualname__})&({othercls.__qualname__})"
+        })
+        return composed

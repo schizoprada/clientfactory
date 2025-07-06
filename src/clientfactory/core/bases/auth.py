@@ -110,3 +110,7 @@ class BaseAuth(abc.ABC, Declarative): #! add back in AuthProtocol,
     def clear(self) -> None:
         """Clear authentication state."""
         self._authenticated = False
+
+    @classmethod
+    def _compose(cls, other: t.Any) -> t.Any:
+        raise NotImplementedError()

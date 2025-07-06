@@ -1,3 +1,4 @@
+# ~/clientfactory/tests/unit/resources/test_managed_resource.py 
 # tests/unit/resources/test_managed_resource.py
 """
 Unit tests for ManagedResource implementation.
