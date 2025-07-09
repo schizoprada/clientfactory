@@ -1,7 +1,18 @@
 # CLIENTFACTORY - CHANGELOG
 
 ## [0.9.34] -- *2025-07-09*
-* Fixed `Declarative.__getattr__`: ...
+* Fixed `Declarative.__getattr__` property access issue with decorator class transformation
++ Enhanced Descriptor Preservation: Fixed `@searchable` and other decorators breaking `@property` and descriptor access
+- Updated `_transformtoresource()`, `_transformtoauth()`, `_transformtobackend()`, `_transformtosession()` to preserve property descriptors during class creation
+- Added `buildclassdict()` utility in `decorators/_utils.py` for safe attribute collection with descriptor preservation
+- Fixed infinite recursion in `__getattr__` caused by decorators calling property getters on class objects instead of instances
+- Properties and other descriptors now work correctly on decorated classes without requiring fallback attribute access logic
++ Comprehensive Transform Fix: All decorator-based class transformations now maintain full Python descriptor protocol compatibility
+- Maintains all existing declarative component access patterns while enabling standard Python features like `@property`
+- Zero breaking changes to existing declarative component behavior
+- Eliminates need for complex `__getattr__` fallback logic by fixing root cause in class transformation
+
+**Impact**: Decorated classes (`@searchable`, `@resource`, etc.) can now use `@property` and other descriptors without `AttributeError`. Resolves long-standing limitation where decorator transformations broke standard Python class features.
 
 ## [0.9.33] -- *2025-07-06*
 * ViewResource Decorator: Complete @viewable decorator implementation for declarative view resource creation
