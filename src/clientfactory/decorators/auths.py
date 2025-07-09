@@ -20,7 +20,7 @@ def _transformtoauth(
     **kwargs: t.Any
 ) -> t.Type[AT]:
     """Transform a target class into the specified auth type."""
-    comps = {f'__{comp}__' for comp in variant.__declcomps__}
+    comps = {f'__{comp}__' for comp in (variant.__declcomps__ | getattr(target, '__declcomps__', set()))}
     classdict = buildclassdict(target, dunders=comps)
     classdict.update(kwargs)
 

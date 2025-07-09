@@ -24,7 +24,7 @@ def _transformtoresource(
     """
     Transform a target class into the specified resource type.
     """
-    comps = {f'__{comp}__' for comp in variant.__declcomps__}
+    comps = {f'__{comp}__' for comp in (variant.__declcomps__ | getattr(target, '__declcomps__', set()))}
 
 
     # collect attributes from target first

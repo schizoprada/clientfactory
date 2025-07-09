@@ -19,7 +19,7 @@ def _transformtosession(
     **kwargs: t.Any
 ) -> t.Type[ST]:
     """Transform a target class into the specified session type."""
-    comps = {f'__{comp}__' for comp in variant.__declcomps__}
+    comps = {f'__{comp}__' for comp in (variant.__declcomps__ | getattr(target, '__declcomps__', set()))}
     classdict = buildclassdict(target, dunders=comps)
     classdict.update(kwargs)
 

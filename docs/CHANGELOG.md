@@ -1,5 +1,18 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.35] -- *2025-07-09*
+* Enhanced declarative component merging in decorator class transformations
++ Component Declaration Extension: Target classes can now extend component declarations beyond variant defaults
+- Updated all `_transform*` methods to merge `__declcomps__` from both target class and variant class
+- Enables patterns like `__declcomps__ = SearchResource.__declcomps__ | {'meta'}` for custom component additions
+- Component dunder preservation now includes both variant components and target-specific components during class transformation
++ Flexible Declarative Patterns: Decorated classes can declare additional components while preserving base functionality
+- Maintains full backward compatibility with existing single-variant component declarations
+- Allows fine-grained control over which component dunders are preserved during decorator transformation
+- Supports advanced use cases where decorated classes need custom component extensions
+
+**Impact**: Decorated classes can now extend their component capabilities beyond the base variant while maintaining all existing declarative functionality. Enables more flexible component composition patterns.
+
 ## [0.9.34] -- *2025-07-09*
 * Fixed `Declarative.__getattr__` property access issue with decorator class transformation
 + Enhanced Descriptor Preservation: Fixed `@searchable` and other decorators breaking `@property` and descriptor access
