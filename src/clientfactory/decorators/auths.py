@@ -10,7 +10,7 @@ import typing as t, functools as fn
 from clientfactory.core.bases import BaseAuth
 from clientfactory.auths.jwt import JWTAuth
 from clientfactory.auths.dpop import DPOPAuth
-from clientfactory.decorators._utils import annotate
+from clientfactory.decorators._utils import annotate, buildclassdict
 
 AT = t.TypeVar('AT', bound=BaseAuth)
 
@@ -20,12 +20,8 @@ def _transformtoauth(
     **kwargs: t.Any
 ) -> t.Type[AT]:
     """Transform a target class into the specified auth type."""
-    classdict = {
-        attrname: getattr(target, attrname)
-        for attrname in dir(target)
-        if not attrname.startswith('__') or (attrname in [f'__{comp}__' for comp in variant.__declcomps__])
-    }
-
+    comps = {f'__{comp}__' for comp in variant.__declcomps__}
+    classdict = buildclassdict(target, dunders=comps)
     classdict.update(kwargs)
 
     new = type(

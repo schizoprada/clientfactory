@@ -1,5 +1,8 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.34] -- *2025-07-09*
+* Fixed `Declarative.__getattr__`: ...
+
 ## [0.9.33] -- *2025-07-06*
 * ViewResource Decorator: Complete @viewable decorator implementation for declarative view resource creation
 + @viewable Decorator: Full-featured decorator following @searchable patterns with ViewResource-specific parameters

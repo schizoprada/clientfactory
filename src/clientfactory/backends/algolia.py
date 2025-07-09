@@ -27,8 +27,11 @@ class AlgoliaConfig(BackendConfig):
     contenttype: str = 'application/json'  # Configurable content type
     encodeparams: bool = True  # Whether to URL encode params
     paramdelimiter: str = '&'
+    postprocess: bool = False
     mergeresults: bool = False  # Whether to merge multi-index results
     multirequest: bool = True # build multi-request array
+
+
 
     @fieldvalidator('urlbase')
     @classmethod
@@ -88,7 +91,7 @@ class AlgoliaBackend(BaseBackend):
     __declconfs__: set[str] = BaseBackend.__declconfs__ | {
         'urlbase', 'agent', 'indices', 'index', 'appid', 'apikey',
         'contenttype', 'encodeparams', 'paramdelimiter', 'encodeagent',
-        'multirequest'
+        'multirequest', 'postprocess'
     }
 
     def __init__(
@@ -406,7 +409,7 @@ class AlgoliaBackend(BaseBackend):
 
     def _processresponse(self, response: ResponseModel) -> t.Any:
         """Process Algolia response with CFv2-style error handling."""
-        if not response.ok:
+        if not response.ok or not self._config.postprocess:
             return response
 
         try:

@@ -239,6 +239,7 @@ class Declarative(metaclass=DeclarativeMeta):
                         return component._obj
                     return component
             raise AttributeError(f"({self.__class__.__name__}:{name}) component not initialized ")
+
         # standard attribute error for non-component attributes
         raise AttributeError(f"({self.__class__.__name__}) has no attribute: {name}")
 

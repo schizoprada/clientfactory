@@ -10,7 +10,7 @@ import typing as t
 from clientfactory.core import Resource
 from clientfactory.resources import SearchResource, ManagedResource, ViewResource
 from clientfactory.core.models import ResourceConfig, SearchResourceConfig, MergeMode
-from clientfactory.decorators._utils import annotate
+from clientfactory.decorators._utils import annotate, buildclassdict
 from clientfactory.logs import log
 
 def _transformtoresource(
@@ -24,16 +24,11 @@ def _transformtoresource(
     """
     Transform a target class into the specified resource type.
     """
+    comps = {f'__{comp}__' for comp in variant.__declcomps__}
+
+
     # collect attributes from target first
-    classdict = {
-        attrname: getattr(target, attrname)
-        for attrname in dir(target)
-        if (not attrname.startswith('__') or
-            attrname in ('__doc__', '__module__', '__qualname__', '__annotations__') or
-            (attrname in [f'__{comp}__' for comp in variant.__declcomps__]))
-    }
-    #print(f"DEBUG _transformtoresource: classdict payload = {classdict.get('payload')}")
-    #print(f"DEBUG _transformtoresource: kwargs.get('payload') = {kwargs.get('payload')}")
+    classdict = buildclassdict(target, dunders=comps)
 
     noneor = lambda k: kwargs.get(k) if k in kwargs and kwargs[k] is not None else classdict.get(k)
 

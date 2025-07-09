@@ -147,9 +147,9 @@ class ViewResource(Resource):
             getbackend=getbackend,
             baseurl=baseurl,
             usesession=self._session,
-            resourcepath=self.viewpath,
+            resourcepath=self.path,
             validationstep=validatepayload,
-            pathoverride=""
+            pathoverride=self.viewpath
         )
 
         self._registermethod(bound, self.viewmethod)

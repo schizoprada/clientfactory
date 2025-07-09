@@ -10,7 +10,7 @@ import typing as t, functools as fn
 from clientfactory.core.bases import BaseBackend
 from clientfactory.backends.algolia import AlgoliaBackend
 from clientfactory.backends.graphql import GQLBackend
-from clientfactory.decorators._utils import annotate
+from clientfactory.decorators._utils import annotate, buildclassdict
 
 BT = t.TypeVar('BT', bound=BaseBackend)
 
@@ -21,11 +21,8 @@ def _transformtobackend(
     **kwargs: t.Any
 ) -> t.Type[BT]:
     """Transform a target class into the specified backend type."""
-    classdict = {
-        a: getattr(target, a)
-        for a in dir(target)
-        if not a.startswith('__') or (a in [f'__{comp}__' for comp in variant.__declcomps__])
-    }
+    comps = {f'__{comp}__' for comp in variant.__declcomps__}
+    classdict = buildclassdict(target, dunders=comps)
     classdict.update(kwargs)
 
     new = type(
