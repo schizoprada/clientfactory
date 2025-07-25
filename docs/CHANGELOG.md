@@ -1,5 +1,26 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.36] -- *2025-07-25*
+* Enhanced Nested Decorator Support: Auto-resolution for dynamically created BoundMethod instances
++ Dynamic Method Creation: Support for @get, @post decorators created at runtime inside methods
+- Added `_autodetectparent()` method for call stack inspection to find parent resource/client context
+- Added `_recreate()` method for complete BoundMethod reconstruction with proper request pipeline
+- Added `_autoresolve()` method for automatic binding resolution when parent detection succeeds
+- Enhanced `_requireresolution` decorator to trigger auto-resolution for unresolved nested decorators
++ Frame Stack Inspection: Robust parent detection through call stack traversal with safety limits
+- Automatic detection of resource (_client attribute) vs client (_resources attribute) contexts
+- Proper baseurl and resourcepath resolution for both client and resource parent types
+- Complete instance reconstruction using createboundmethod() for full request pipeline integration
++ Production Ready: Nested decorators now work seamlessly with clientfactory request processing
+- Dynamic f-string paths in decorators (e.g., @get(f"endpoint/{variable}"))
+- Dynamic headers in decorators (e.g., headers={'X-Custom': dynamic_value})
+- Full request/response pipeline with session, authentication, and backend processing
+- Comprehensive logging for debugging nested decorator resolution process
+
+**Known Limitation**: Mixin methods (prepare(), iterate(), cycle()) not yet supported for nested decorators
+**Next Phase**: Will address mixin compatibility in future enhancement cycle
+
+
 ## [0.9.35] -- *2025-07-09*
 * Enhanced declarative component merging in decorator class transformations
 + Component Declaration Extension: Target classes can now extend component declarations beyond variant defaults
