@@ -165,8 +165,9 @@ class BoundMethod(IterMixin, PrepMixin):
     def _requireresolution(func: t.Callable) -> t.Callable:
         """Decorator ensuring method is resolved before execution."""
         def decorator(self, *args, **kwargs):
-            if not self._autoresolve():#if (not getattr(self, '_resolved', False)) or (self._parent is UNSET):
-                raise RuntimeError(f"BoundMethod '{self.__name__}' not resolved - parent is UNSET")
+            if (not getattr(self, '_resolved', False)) or (self._parent is UNSET):
+                if not self._autoresolve():
+                    raise RuntimeError(f"BoundMethod '{self.__name__}' not resolved - parent is UNSET")
             return func(self, *args, **kwargs)
         return decorator
 
