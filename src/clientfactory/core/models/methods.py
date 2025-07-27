@@ -5,6 +5,7 @@
 from __future__ import annotations
 import typing as t
 
+from clientfactory.logs import log
 from clientfactory.core.utils.typed import UNSET
 from clientfactory.core.models.config import MethodConfig
 from clientfactory.core.protos import BoundMethodProtocol
@@ -12,6 +13,7 @@ from clientfactory.mixins import IterMixin, PrepMixin
 from clientfactory.mixins.core import Mixer
 
 if t.TYPE_CHECKING:
+    from clientfactory.core.models.request import ResponseModel
     from clientfactory.core.bases.client import BaseClient
     from clientfactory.core.bases.resource import BaseResource
 
@@ -24,8 +26,9 @@ BoundParentType = t.Union[
 ]
 
 T = t.TypeVar('T')
+_R = t.TypeVar('_R')
 
-class BoundMethod(IterMixin, PrepMixin):
+class BoundMethod(t.Generic[_R], IterMixin, PrepMixin):
     """A bound method that can accept mixins for enhanced functionality"""
 
     def __init__(
@@ -39,9 +42,29 @@ class BoundMethod(IterMixin, PrepMixin):
         self._func: t.Callable = func
         self._parent: BoundParentType = parent
         self._config: MethodConfig = config
-        self._resolved: bool = (parent is not UNSET) and (config is not UNSET)
+        #self._resolved: bool = (parent is not UNSET) and (config is not UNSET)
 
         self._cloneattributes()
+
+    @property
+    def _resolved(self) -> bool:
+        conditions = [
+            (self._parent is not UNSET),
+            (self._config is not UNSET),
+            (self._func.__closure__ is not None),
+        ]
+        return all(conditions)
+
+    @property
+    def _methodconfig(self) -> MethodConfig:
+        """Backwards compatibility"""
+        return self._config
+
+    @property
+    def chain(self) -> Mixer:
+        """..."""
+        return Mixer(self)
+
 
     @t.overload
     def __get__(self, obj: None, objtype: t.Type[T]) -> t.Self: ...
@@ -59,6 +82,11 @@ class BoundMethod(IterMixin, PrepMixin):
         self.__name__ = self._func.__name__
         self.__doc__ = self._func.__doc__
 
+        # copy annotations but force return type
+        if hasattr(self._func, '__annotations__'):
+            self.__annotations__ = self._func.__annotations__.copy()
+            self.__annotations__['return'] = 'ResponseModel'
+
     def _resolvebinding(
         self,
         parent: BoundParentType,
@@ -69,7 +97,7 @@ class BoundMethod(IterMixin, PrepMixin):
             self._parent = parent
             if config is not None:
                 self._config = config
-            self._resolved = True
+            #self._resolved = True
             self._cloneattributes()
 
     def _autodetectparent(self) -> t.Optional[t.Any]:
@@ -80,8 +108,6 @@ class BoundMethod(IterMixin, PrepMixin):
         None otherwise.
         """
         import inspect
-        from clientfactory.logs import log
-
         frame = inspect.currentframe()
         if frame:
             try:
@@ -92,26 +118,39 @@ class BoundMethod(IterMixin, PrepMixin):
                     fcount += 1
                     callerlocals = current.f_locals
                     callerself = callerlocals.get('self')
-                    log.info(f"[BoundMethod._autodetectparent](Frame {fcount}) self: {type(callerself) if callerself else None}")
+                    log.critical(f"""
+                        [BoundMethod._autodetectparent] Frame {fcount}
+                        function: {current.f_code.co_name}
+                        self type: {type(callerself).__name__ if callerself else None}
+                        has _client: {hasattr(callerself, '_client') if callerself else False}
+                        has _resources: {hasattr(callerself, '_resources') if callerself else False}
+                        locals keys: {list(callerlocals.keys())}
+
+                        """)
                     # check if its a resource or client context
                     if callerself and (
                         hasattr(callerself, '_client') or # Resource
                         hasattr(callerself, '_resources') # Client
                     ):
-                        log.info(f"[BoundMethod._autodetectparent](Frame {fcount}) found parent: {callerself}({type(callerself)})")
+                        log.critical(f"""
+                            [BoundMethod._autodetectparent] Frame {fcount}
+                            found parent: {callerself}
+                            """)
                         return callerself
 
                     current = current.f_back
-
+                log.critical(f"""
+                    [BoundMethod._autodetectparent] Frame {fcount}
+                    No parent found in stack
+                    """)
             except Exception as e:
                 # logging just for testing
-                from clientfactory.logs import log
-                log.error(f"[BoundMethod] Exception finding parent: {e!r}")
+                #from clientfactory.logs import log
+                log.error(f"[BoundMethod._autodetectparent] Exception finding parent: {e!r}")
                 pass # fail silently
             finally:
                 if frame:
                     del frame
-
         return None
 
     def _recreate(self, parent: BoundParentType) -> 'BoundMethod':
@@ -143,36 +182,73 @@ class BoundMethod(IterMixin, PrepMixin):
             resourcepath=resourcepath
         )
 
-
     def _autoresolve(self) -> bool:
         """Decorator to auto-resolve binding before method execution."""
-        from clientfactory.logs import log
-        if (not self._resolved) or (self._parent is UNSET):
-            log.info(f"[BoundMethod._autoresolve] auto-resolving: {self.__name__}")
-            log.info(f"[BoundMethod._autoresolve] self._resolved: {self._resolved}\tself._parent: {self._parent}")
-            parent = self._autodetectparent()
-            if parent:
-                log.info(f"[BoundMethod._autoresolve] parent detected: {parent}\nRecreating proper instance")
-                rebound = self._recreate(parent)
-                log.info(f"[BoundMethod._autoresolve] self.__dict__ before update: {self.__dict__}")
-                self.__dict__.update(rebound.__dict__)
-                log.info(f"[BoundMethod._autoresolve] self.__dict__ after update: {self.__dict__}")
-                return True
-            return False
-        return True
+
+        log.critical(f"""
+            [BoundMethod._autoresolve]
+            Attempting binding resolution on '{self._func.__name__}' with parent: {self._parent}
+            """)
+        # 1. check if _func is the raw method (needs wrapping)
+        if hasattr(self._func, '__self__'):
+            log.critical(f"""
+                [BoundMethod._autoresolve]
+                {self._func.__name__} is already bound (has __self__)
+                """)
+            return True # already bound/wrapped
+
+        # 2. if we have a parent, recreate to get proper wrapper
+        if self._parent is not UNSET:
+            log.critical(f"""
+                [BoundMethod._autoresolve]
+                self._parent is not UNSET, recreating for proper wrapper: {self.__name__}
+                current self.__dict__: {self.__dict__}
+                """)
+            rebound = self._recreate(self._parent)
+            self.__dict__.update(rebound.__dict__)
+            log.critical(f"""
+                [BoundMethod._autoresolve]
+                updated self.__dict__: {self.__dict__}
+                """)
+            return True
+
+        # 3. try to autodetect parent
+        log.critical(f"""
+            [BoundMethod._autoresolve]
+            auto-detecting parent for: {self.__name__}
+            """)
+        parent = self._autodetectparent()
+        if parent:
+            log.critical(f"""
+                [BoundMethod._autoresolve]
+                parent detected: {parent}
+                recreating wrapper with parent
+                current self.__dict__: {self.__dict__}
+                """)
+            rebound = self._recreate(parent)
+            self.__dict__.update(rebound.__dict__)
+            log.critical(f"""
+                [BoundMethod._autoresolve]
+                updated self.__dict__: {self.__dict__}
+                """)
+            return True
+        return False
 
     @staticmethod
     def _requireresolution(func: t.Callable) -> t.Callable:
         """Decorator ensuring method is resolved before execution."""
+        log.critical(f"[BoundMethod._requiresresolution] checking if resolution is required")
         def decorator(self, *args, **kwargs):
-            if (not getattr(self, '_resolved', False)) or (self._parent is UNSET):
+            required = (not getattr(self, '_resolved', False)) or (self._parent is UNSET)
+            log.critical(f"[BoundMethod._requiresresolution] required: {required}")
+            if required:
                 if not self._autoresolve():
                     raise RuntimeError(f"BoundMethod '{self.__name__}' not resolved - parent is UNSET")
             return func(self, *args, **kwargs)
         return decorator
 
     @_requireresolution
-    def __call__(self, *args, **kwargs) -> t.Any:
+    def __call__(self, *args, **kwargs) -> 'ResponseModel':
         """Call the function this method is bound to."""
         return self._func(*args, **kwargs)
 
@@ -182,15 +258,7 @@ class BoundMethod(IterMixin, PrepMixin):
         return f"<BoundMethod({self.__name__})::{self._parent.__class__.__name__}>"
 
 
-    @property
-    def _methodconfig(self) -> MethodConfig:
-        """Backwards compatibility"""
-        return self._config
 
-    @property
-    def chain(self) -> Mixer:
-        """..."""
-        return Mixer(self)
 
 '''
 TODO:

@@ -1,5 +1,21 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.37] -- *2025-07-27*
+* Fixed BoundMethod Resolution: Resolved "missing self" error in decorated methods
++ Enhanced Type Hints: BoundMethod now properly typed with Generic[ResponseModel]
+- Fixed `_resolved` property to check for wrapped functions via closure detection
+- Updated `_autoresolve` to recreate methods even when parent is set but function isn't wrapped
+- Made BoundMethod generic with `_R` TypeVar for proper return type propagation
+- Fixed decorator return types to properly hint ResponseModel without requiring imports
++ Improved DX: Methods now show correct return type (ResponseModel) in IDEs
+- Moved log import inside `_autodetectparent` to prevent import shadowing issues
+- Cleaned up `_requireresolution` to use proper resolution checking
++ Production Ready: Both simple client.method() and nested decorators work seamlessly
+- No manual binding required for nested decorators - fully automatic
+- Type checkers now understand method return types without user imports
+
+**Builds on 0.9.36**: Nested decorator support now fully functional with proper type hints
+
 ## [0.9.36] -- *2025-07-25*
 * Enhanced Nested Decorator Support: Auto-resolution for dynamically created BoundMethod instances
 + Dynamic Method Creation: Support for @get, @post decorators created at runtime inside methods

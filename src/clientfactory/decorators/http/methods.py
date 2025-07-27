@@ -11,6 +11,7 @@ from clientfactory.core.models import HTTPMethod, MethodConfig, Payload, MergeMo
 from clientfactory.decorators.http.docs import DOCS
 
 if t.TYPE_CHECKING:
+    from clientfactory.core.models.request import ResponseModel
     from clientfactory.core.models.methods import BoundMethod
 
 def _generatedocstring(config: MethodConfig, func: t.Callable) -> str:
@@ -151,7 +152,7 @@ def httpmethod(
     postprocess: t.Optional[t.Callable] = None,
     description: t.Optional[str] = None,
     **kwargs: t.Any
-) -> t.Callable[[t.Callable], 'BoundMethod']:
+) -> t.Callable[[t.Callable], 'BoundMethod[ResponseModel]']:
     """
     Base HTTP method decorator with comprehensive configuration support.
 
@@ -177,7 +178,7 @@ def httpmethod(
     Raises:
         ValueError: For invalid decorator usage (e.g., GET with payload)
     """
-    def decorator(func: t.Callable) -> 'BoundMethod':
+    def decorator(func: t.Callable) -> 'BoundMethod[ResponseModel]':
         from clientfactory.core.utils.typed import UNSET
         from clientfactory.core.models.methods import BoundMethod
 
@@ -209,19 +210,27 @@ def httpmethod(
 
         bound = BoundMethod(func, UNSET, conf)
 
-        return t.cast('BoundMethod', bound)
+        return t.cast('BoundMethod[ResponseModel]', bound)
 
     return decorator
 
 # HTTP method decorators
-def _createdecorator(method: HTTPMethod) -> t.Callable[..., t.Union['BoundMethod', t.Callable[[t.Callable], 'BoundMethod']]]:
+def _createdecorator(method: HTTPMethod) -> t.Callable[..., t.Callable[..., 'ResponseModel']]: #t.Callable[..., t.Union['BoundMethod', t.Callable[[t.Callable], 'BoundMethod']]]:
+    @t.overload
+    def decorator(funcorpath: t.Callable) -> 'BoundMethod[ResponseModel]': ...
+
+    @t.overload
+    def decorator(funcorpath: t.Optional[str] = None, *, headers: t.Optional[t.Dict[str, str]] = None, **kwargs) -> t.Callable[[t.Callable], 'BoundMethod[ResponseModel]']: ...
+
+
     def decorator(funcorpath: t.Any = None, **kwargs):
         if callable(funcorpath):
             # no parentheses
             return httpmethod(method, None)(funcorpath)
         return httpmethod(method, funcorpath, **kwargs)
-    decorator.__annotations__ = {'return': 'BoundMethod'}
-    return t.cast(t.Callable[..., 'BoundMethod'], decorator)
+    #decorator.__annotations__ = {'return': 'BoundMethod'}
+    #return t.cast(t.Callable[..., 'BoundMethod'], decorator)
+    return decorator
 
 get = _createdecorator(HTTPMethod.GET)
 post = _createdecorator(HTTPMethod.POST)
