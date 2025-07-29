@@ -164,6 +164,10 @@ class BoundMethod(t.Generic[_R], IterMixin, PrepMixin):
 
         log.info(f"[BoundMethod._recreate] Creating proper instance for {self.__name__}")
 
+        # preserve session metadata before recreation
+        sessionmeta = getattr(self, '_sessionmeta', {})
+        log.critical(f"[BoundMethod._recreate] preserving session metadata: {sessionmeta}")
+
         inresource = hasattr(parent, '_client')
         getengine = (lambda p: p._engine) if not inresource else (lambda p: p._client._engine)
         getbackend = (lambda p: p._backend) if not inresource else (lambda p: p._backend or p._client._backend)
@@ -173,14 +177,16 @@ class BoundMethod(t.Generic[_R], IterMixin, PrepMixin):
         log.info(f"[BoundMethod._recreate] baseurl: {baseurl}, resourcepath: {resourcepath}")
 
         # Return completely new, properly constructed BoundMethod
-        return createboundmethod(
+        rebound = createboundmethod(
             method=self._func,
             parent=parent,
             getengine=getengine,
             getbackend=getbackend,
             baseurl=baseurl,
-            resourcepath=resourcepath
+            resourcepath=resourcepath,
+            sessionmeta=sessionmeta
         )
+        return rebound
 
     def _autoresolve(self) -> bool:
         """Decorator to auto-resolve binding before method execution."""

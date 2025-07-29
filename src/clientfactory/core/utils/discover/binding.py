@@ -7,6 +7,8 @@ Universal bound method creation logic shared across clients and resources.
 from __future__ import annotations
 import typing as t
 
+from clientfactory.logs import log
+
 if t.TYPE_CHECKING:
     from clientfactory.core.models.config import MethodConfig
     from clientfactory.core.models.methods import BoundMethod
@@ -27,6 +29,7 @@ def createboundmethod(
     resourcepath: t.Optional[str] = None,
     validationstep: t.Optional[t.Callable] = None,
     pathoverride: t.Optional[str] = None,
+    sessionmeta: t.Optional[dict] = None
 ) -> 'BoundMethod':
     """
     Create a bound method with unified request processing logic.
@@ -83,7 +86,22 @@ def createboundmethod(
             request = backend.formatrequest(request, kwargs)
 
         engine = getengine(parent)
-        response = engine.send(request, noexec=noexec, usesession=usesession)
+        session = engine._session # get session directly
+
+        # extract and set session metadata
+        if sessionmeta is not None:
+            xsessionmeta = sessionmeta
+            log.critical(f"(createboundmethod)@[{method.__name__}] using provided sessionmeta: {xsessionmeta}")
+        else:
+            from clientfactory.core.utils.session.meta import getsessionmeta
+            xsessionmeta = getsessionmeta(method)
+            log.critical(f"(createboundmethod)@[{method.__name__}] extracted sessionmeta: {xsessionmeta}")
+
+        try:
+            session._focusedmeta = xsessionmeta
+            response = engine.send(request, noexec=noexec, usesession=usesession)
+        finally:
+            session._focusedmeta = None
 
         if isinstance(response, RequestModel):
             return response

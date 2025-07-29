@@ -216,6 +216,16 @@ class Cookies(dict):
 
         return self
 
+class HeaderMetadata(t.TypedDict, total=False):
+    """..."""
+    add: t.Union[bool, t.List[str]]
+    update: t.Union[bool, t.List[str]]
+    ignore: t.Union[bool, t.List[str]]
+    discard: t.Union[bool, t.List[str]]
+
+class SessionMetadata(t.TypedDict, total=False):
+    """..."""
+    headers: HeaderMetadata
 
 
 class SessionInitializer:

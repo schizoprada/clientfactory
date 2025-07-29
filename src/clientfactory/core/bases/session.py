@@ -9,11 +9,15 @@ import abc, typing as t
 
 from clientfactory.core.models import (
     RequestModel, ResponseModel, SessionConfig,
-    SessionInitializer, MergeMode
+    SessionInitializer, MergeMode, HeaderMetadata,
+    SessionMetadata
 )
 from clientfactory.core.protos import (
     SessionProtocol, AuthProtocol, RequestEngineProtocol,
     PersistenceProtocol
+)
+from clientfactory.core.utils.session.meta import (
+    ensuresessionmeta, metaheaders, metasession
 )
 from clientfactory.core.bases.declarative import Declarative
 from clientfactory.core.metas.protocoled import ProtocoledAbstractMeta
@@ -61,6 +65,9 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         attrs = self._collectattributes(**kwargs)
         log.debug(f"BaseSession.__init__: attrs = {attrs}")
         self._resolveattributes(attrs)
+
+        # initialize session metadata tracking
+        self._focusedmeta: t.Optional[SessionMetadata] = None
 
         self._closed: bool = False
         self._obj: t.Any = self._setup()
@@ -129,7 +136,6 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         if ('headers' in state) and (hasattr(self._obj, 'headers')):
             self._obj.headers.update(state['headers'])
 
-
     def _savepersistentstate(self) -> None:
         """Save session state to persistence"""
         if not self._persistence:
@@ -141,6 +147,57 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         if hasattr(self._obj, 'headers'):
             state['headers'] = dict(self._obj.headers)
 
+    def _handleresponseheaders(self, response: ResponseModel) -> None:
+        """Handle response headers based on focused method metadata."""
+        if not (
+            self._focusedmeta and
+            'headers' in self._focusedmeta and
+            response.headers
+        ):
+            return
+        log.info(f"(BaseSession._handleresponseheaders) processing {len(response.headers)} headers with config: {self._focusedmeta['headers']}")
+
+        options = self._focusedmeta['headers']
+
+        # handle ignore=True first
+        ignore = options.get('ignore', [])
+        if ignore is True:
+            log.info(f"(BaseSession._handleresponseheaders) ignoring all headers")
+            return
+        ignoreable = ignore if isinstance(ignore, list) else []
+
+        current = metasession.getheaders(self._obj) # current headers
+
+        # apply operations
+        if ('add' in options):
+            added = metaheaders.applyadd(
+                current,
+                response.headers,
+                options['add'],
+                ignoreable
+            )
+            metasession.setheaders(self._obj, added)
+        if ('update' in options):
+            updated = metaheaders.applyupdate(
+                current,
+                response.headers,
+                options['update'],
+                ignoreable
+            )
+            metasession.setheaders(self._obj, updated)
+        if ('discard' in options):
+            preserved = metaheaders.applydiscard(
+                current,
+                options['discard']
+            )
+            metasession.setheaders(self._obj, preserved)
+
+    def _handleresponse(self, response: ResponseModel) -> ResponseModel:
+        """Handle all response-level processing."""
+        # headers first
+        self._handleresponseheaders(response)
+
+        return response
 
     ## core methods ##
     def preparerequest(self, request: RequestModel, noexec: bool = False) -> RequestModel:
@@ -170,6 +227,9 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
 
         Handle session-level response processing.
         """
+        # handle session-level response processing (headers, cookies, etc.)
+        self._handleresponse(response)
+
         processed = self._processresponse(response)
 
         # refresh auth if needed
@@ -177,7 +237,6 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
             self._auth.refreshifneeded()
 
         return processed
-
 
     def send(self, request: RequestModel, noexec: bool = False) -> t.Union[RequestModel, ResponseModel]:
         """
@@ -223,7 +282,163 @@ class BaseSession(abc.ABC, Declarative): #! add back in: SessionProtocol,
         """The library-specific session object"""
         return self._obj
 
-
     @classmethod
     def _compose(cls, other: t.Any) -> t.Any:
         raise NotImplementedError()
+
+    ## class methods ##
+    @classmethod
+    def AddHeaders(cls, *headers: str) -> t.Callable:
+        """
+        Decorator to add response headers to session state.
+
+        Args:
+            *headers: Specific header names to add. If empty, adds all response headers.
+
+        Returns:
+            Decorator function that marks method for header addition
+
+        Example:
+            @MySession.AddHeaders('x-api-key', 'authorization')
+            @get('endpoint')
+            def get_data(self): pass
+
+            @MySession.AddHeaders()  # Add all headers
+            @post('login')
+            def login(self): pass
+        """
+        addable = list(headers) if headers else True
+        def decorator(func: t.Callable) -> t.Callable:
+            log.critical(f"({cls.__name__}.AddHeaders)@[{func.__name__}] addable: {addable}")
+            func = ensuresessionmeta(func)
+            func._sessionmeta['headers']['add'] = addable
+            return func
+        return decorator
+
+    @classmethod
+    def UpdateHeaders(cls, *headers: str) -> t.Callable:
+        """
+        Decorator to update existing session headers with response values.
+
+        Only updates headers that already exist in session state.
+
+        Args:
+            *headers: Specific header names to update. If empty, updates all existing headers.
+
+        Returns:
+            Decorator function that marks method for header updating
+
+        Example:
+            @MySession.UpdateHeaders('authorization', 'x-session-token')
+            @get('refresh')
+            def refresh_token(self): pass
+
+            @MySession.UpdateHeaders()  # Update all existing headers
+            @post('authenticate')
+            def authenticate(self): pass
+        """
+        updateable = list(headers) if headers else True
+        def decorator(func: t.Callable) -> t.Callable:
+            func = ensuresessionmeta(func)
+            func._sessionmeta['headers']['update'] = updateable
+            return func
+        return decorator
+
+    @classmethod
+    def IgnoreHeaders(cls, *headers: str) -> t.Callable:
+        """
+        Decorator to ignore specific response headers for this method.
+
+        Prevents specified headers from being processed by session.
+
+        Args:
+            *headers: Specific header names to ignore. If empty, ignores all response headers.
+
+        Returns:
+            Decorator function that marks method to ignore headers
+
+        Example:
+            @MySession.IgnoreHeaders('content-type', 'server')
+            @get('data')
+            def get_static_data(self): pass
+
+            @MySession.IgnoreHeaders()  # Ignore all headers
+            @get('download')
+            def download_file(self): pass
+        """
+        ignoreable = list(headers) if headers else True
+        def decorator(func: t.Callable) -> t.Callable:
+            func = ensuresessionmeta(func)
+            func._sessionmeta['headers']['ignore'] = ignoreable
+            return func
+        return decorator
+
+    @classmethod
+    def DiscardHeaders(cls, *headers: str) -> t.Callable:
+        """
+        Decorator to remove headers from session state after response.
+
+        Removes specified headers from session, useful for cleanup.
+
+        Args:
+            *headers: Specific header names to discard. If empty, clears all session headers.
+
+        Returns:
+            Decorator function that marks method for header removal
+
+        Example:
+            @MySession.DiscardHeaders('temp-token', 'x-request-id')
+            @post('logout')
+            def logout(self): pass
+
+            @MySession.DiscardHeaders()  # Clear all headers
+            @delete('session')
+            def clear_session(self): pass
+        """
+        discardable = list(headers) if headers else True
+        def decorator(func: t.Callable) -> t.Callable:
+            func = ensuresessionmeta(func)
+            func._sessionmeta['headers']['discard'] = discardable
+            return func
+        return decorator
+
+    @classmethod
+    def Headers(
+        cls,
+        add: t.Optional[t.Union[bool, t.List[str]]] = None,
+        update: t.Optional[t.Union[bool, t.List[str]]] = None,
+        ignore: t.Optional[t.Union[bool, t.List[str]]] = None,
+        discard: t.Optional[t.Union[bool, t.List[str]]] = None
+    ) -> t.Callable:
+        """
+        Decorator for comprehensive header processing configuration.
+
+        Combines multiple header operations in a single decorator.
+
+        Args:
+            add: Headers to add (bool for all, list for specific)
+            update: Headers to update (bool for all existing, list for specific)
+            ignore: Headers to ignore (bool for all, list for specific)
+            discard: Headers to discard (bool for all, list for specific)
+
+        Returns:
+            Decorator function that applies specified header processing
+
+        Example:
+            @MySession.Headers(add=['x-api-key'], ignore=['server', 'date'])
+            @get('endpoint')
+            def get_data(self): pass
+
+            @MySession.Headers(update=True, discard=['temp-header'])
+            @post('submit')
+            def submit_data(self): pass
+        """
+        operable = {'add': add, 'update': update, 'ignore': ignore, 'discard': discard}
+        def decorator(func: t.Callable) -> t.Callable:
+            log.critical(f"({cls.__name__}.Headers)@[{func.__name__}] operatable: {operable}")
+            func = ensuresessionmeta(func)
+            for k,v in operable.items():
+                if v is not None:
+                    func._sessionmeta['headers'][k] = v
+            return func
+        return decorator

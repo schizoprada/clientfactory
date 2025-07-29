@@ -37,7 +37,8 @@ from .request import (
 )
 
 from .contexts import (
-    Headers, Cookies, SessionInitializer
+    Headers, Cookies, SessionInitializer,
+    HeaderMetadata, SessionMetadata
 )
 
 from .methods import BoundMethod

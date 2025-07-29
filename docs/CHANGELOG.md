@@ -1,5 +1,46 @@
 # CLIENTFACTORY - CHANGELOG
 
+## [0.9.38] -- *2025-07-29*
+* Session Header Processing System: Complete response header management with method-level decorators
++ Dynamic Header Control: Method-specific decorators for fine-grained response header processing
+- Added @BaseSession.AddHeaders() decorator for adding response headers to session state
+- Added @BaseSession.UpdateHeaders() decorator for updating existing session headers from responses
+- Added @BaseSession.IgnoreHeaders() decorator for selectively ignoring response headers during processing
+- Added @BaseSession.DiscardHeaders() decorator for removing headers from session state after responses
+- Added @BaseSession.Headers() catch-all decorator supporting multiple operations in single declaration
+- Support for both specific header lists and boolean flags (True for all headers)
++ Session Metadata Flow: Robust metadata preservation through BoundMethod recreation pipeline
+- Enhanced createboundmethod() with sessionmeta parameter for direct metadata passing
+- Updated BoundMethod._recreate() to preserve _sessionmeta during auto-resolution reconstruction
+- Added getsessionmeta() utility for extracting metadata from functions and BoundMethod objects
+- Session metadata flows correctly through decorator → function → bound method → engine → session pipeline
++ Universal Session Compatibility: Abstracted header access patterns for diverse session implementations
+- Added metasession.getheaders() for extracting headers from any session object type
+- Added metasession.setheaders() for updating headers regardless of underlying session implementation
+- Support for requests.Session (.headers attribute), dict-based sessions (['headers']), and custom session types
+- Future-proof architecture extensible to httpx, aiohttp, and custom session implementations
++ Header Processing Utilities: Modular helper functions for header manipulation operations
+- Added metaheaders.applyadd() for selective header addition with ignore list support
+- Added metaheaders.applyupdate() for updating existing headers with conflict avoidance
+- Added metaheaders.applydiscard() for header removal with pattern matching
+- Added ensuresessionmeta() utility for consistent session metadata structure initialization
++ TypedDict Definitions: Strong typing for session metadata structures
+- HeaderMetadata TypedDict with add, update, ignore, discard operation configurations
+- SessionMetadata TypedDict with headers section and extensibility for future cookies/auth metadata
+- Type-safe configuration with Union types supporting both boolean and list specifications
++ Comprehensive Testing: Full test suite validating all header processing scenarios
+- Validated add all/specific headers functionality with httpbin integration
+- Tested update all/existing headers with proper precedence handling
+- Verified ignore functionality during add operations with selective processing
+- Confirmed discard operations for session cleanup workflows
+- Tested complex combination scenarios with multiple operations per method
+
+**Architecture Highlights**: Decorator-driven header management with zero configuration overhead
+**Developer Experience**: Intuitive @Session.Operation() syntax with composable functionality
+**Production Ready**: Robust error handling, comprehensive logging, and universal session compatibility
+
+**Next Phase**: Foundation established for cookies and authentication metadata processing using identical patterns
+
 ## [0.9.37] -- *2025-07-27*
 * Fixed BoundMethod Resolution: Resolved "missing self" error in decorated methods
 + Enhanced Type Hints: BoundMethod now properly typed with Generic[ResponseModel]

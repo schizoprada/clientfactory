@@ -230,9 +230,37 @@ class ResponseModel(PydModel):
     @property
     def text(self) -> str:
         """Get response content as text."""
-        if self.textdata is None:
-            self.textdata = self.content.decode('utf-8')
-        return self.textdata
+        GZIP = b'\x1f\x8b'
+        ZLIB = (b'x\x9c', b'x\x01', b'x\xda')
+        BZIP = b'BZ'
+        try:
+            if self.textdata is None:
+                content = self.content
+                if content.startswith(GZIP):
+                    import gzip
+                    content = gzip.decompress(content)
+                elif any(content.startswith(Z) for Z in ZLIB):
+                    import zlib
+                    content = zlib.decompress(content)
+                elif content.startswith(BZIP):
+                    import bz2
+                    content = bz2.decompress(content)
+
+                encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'ascii']
+                for enc in encodings:
+                    try:
+                        self.textdata = content.decode(enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+
+            if self.textdata is not None:
+                return self.textdata
+            log.warning(f"Failed to decode textdata, returning raw")
+            return str(self.content)
+        except Exception as e:
+            log.warning(f"Exception decoding textdata, returning raw: {e!r}")
+            return str(self.content)
 
     ## model methods ##
     def json(self) -> t.Any: # type: ignore[override]
